@@ -8,5 +8,39 @@
 }
 
 .controls {
-    margin-top: 20px;
+    display: flex;
+    flex-direction: row; /* 横並びに変更 */
+    align-items: center;
+    gap: 10px;
+}
+
+.continuous-toggle-btn {
+    padding: 10px 20px;
+    font-size: 1em;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    background-color: #f0f0f0;
+    transition: background-color 0.2s;
+}
+
+.continuous-toggle-btn.active {
+    background-color: #8888ff; /* 連続入力モードON時の色 */
+    border-color: #5555aa;
+    font-weight: bold;
+}
+
+.note-toggle-btn {
+    padding: 10px 20px;
+    font-size: 1em;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    background-color: #f0f0f0;
+    transition: background-color 0.2s;
+}
+
+.note-toggle-btn.active {
+    /* 連続入力ボタンと同様のスタイルを追加 */
+    background-color: #ff8888; /* メモモードON時の色 */
+    border-color: #aa5555;
+    font-weight: bold;
 }

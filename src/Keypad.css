@@ -24,3 +24,13 @@
 .clear-button {
     grid-column: span 3;
 }
+
+.keypad-button.note-mode {
+    font-size: 1em; /* メモモードでは少し小さく */
+    color: #888;
+}
+
+.keypad-button.selected-number {
+    background-color: #88ff88;
+    border-color: #55aa55;
+}

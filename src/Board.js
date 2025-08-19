@@ -3,7 +3,7 @@ import React from 'react';
 import Cell from './Cell';
 import './Board.css';
 
-const Board = ({ board, given, selectedCell, onCellClick }) => {
+const Board = ({ board, given, selectedCell, onCellClick, notes, highlightNumber }) => {
     return (
         <div className="board">
             {board.map((row, rowIndex) => (
@@ -16,7 +16,10 @@ const Board = ({ board, given, selectedCell, onCellClick }) => {
                                 value={cellValue}
                                 given={given[rowIndex][colIndex]}
                                 isSelected={isSelected}
+                                isHighlighted={cellValue === highlightNumber} // ハイライトの条件を追加
                                 onClick={() => onCellClick(rowIndex, colIndex)}
+                                notes={notes[rowIndex][colIndex]}
+                                highlightNumber={highlightNumber} // notes内の強調表示にも必要
                             />
                         );
                     })}
