@@ -1,9 +1,22 @@
 // src/Keypad.js
-import React from 'react';
+import React, { useRef } from 'react';
 import './Keypad.css';
 
-const Keypad = ({ onNumberClick, onClearClick, isNoteMode, isContinuousMode, selectedNumber }) => {
+const Keypad = ({ onNumberClick, onClearClick, onLongPressToggle, isNoteMode, isContinuousMode, selectedNumber }) => {
     const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const pressTimer = useRef(null);
+
+    const handlePressStart = (number) => {
+        // 0.5秒後に長押しハンドラを実行
+        pressTimer.current = setTimeout(() => {
+            onLongPressToggle(number); // 長押しされた数字を渡す
+        }, 500);
+    };
+
+    const handlePressEnd = () => {
+        // 指を離したらタイマーをクリア
+        clearTimeout(pressTimer.current);
+    };
 
     return (
         <div className="keypad">
@@ -14,6 +27,11 @@ const Keypad = ({ onNumberClick, onClearClick, isNoteMode, isContinuousMode, sel
                         ${isContinuousMode && selectedNumber === number ? 'selected-number' : ''}
                     `}
                     onClick={() => onNumberClick(number)}
+                    onMouseDown={() => handlePressStart(number)}
+                    onMouseUp={handlePressEnd}
+                    onMouseLeave={handlePressEnd}
+                    onTouchStart={() => handlePressStart(number)}
+                    onTouchEnd={handlePressEnd}
                 >
                     {number}
                 </button>

@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useState, useEffect  } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Board from './Board';
 import Keypad from './Keypad';
 import './App.css';
@@ -31,6 +31,29 @@ const App = () => {
     const [selectedNumber, setSelectedNumber] = useState(null);
     const [highlightNumber, setHighlightNumber] = useState(null);
 
+    // 状態の履歴を管理
+    const history = useRef([{ board: initialBoard, notes: notes }]);
+    const historyIndex = useRef(0);
+
+    const saveHistory = (newBoard, newNotes) => {
+        // 現在の履歴以降を削除
+        history.current = history.current.slice(0, historyIndex.current + 1);
+        // 新しい状態を追加
+        history.current.push({ board: newBoard, notes: newNotes });
+        // 履歴インデックスを更新
+        historyIndex.current = history.current.length - 1;
+    };
+
+    const handleUndoClick = () => {
+        if (historyIndex.current > 0) {
+            // インデックスを1つ戻す
+            historyIndex.current -= 1;
+            const prevState = history.current[historyIndex.current];
+            setBoard(prevState.board);
+            setNotes(prevState.notes.map(row => row.map(cellNotes => new Set(cellNotes))));
+        }
+    };
+
     // デバッグ情報を出力するuseEffectフック
     useEffect(() => {
         console.log('--- App State ---');
@@ -43,11 +66,35 @@ const App = () => {
         console.log('-----------------');
     }, [selectedCell, isNoteMode, isContinuousMode, selectedNumber, highlightNumber, notes]);
 
+    // 新しく追加するヘルパー関数
+    const updateNotesAfterInput = (rowIndex, colIndex, number, newNotes) => {
+        // 行のメモを更新
+        for (let c = 0; c < 9; c++) {
+            if (c !== colIndex) {
+                newNotes[rowIndex][c].delete(number);
+            }
+        }
+        // 列のメモを更新
+        for (let r = 0; r < 9; r++) {
+            if (r !== rowIndex) {
+                newNotes[r][colIndex].delete(number);
+            }
+        }
+        // ブロックのメモを更新
+        const startRow = Math.floor(rowIndex / 3) * 3;
+        const startCol = Math.floor(colIndex / 3) * 3;
+        for (let r = startRow; r < startRow + 3; r++) {
+            for (let c = startCol; c < startCol + 3; c++) {
+                if (r !== rowIndex || c !== colIndex) {
+                    newNotes[r][c].delete(number);
+                }
+            }
+        }
+        return newNotes;
+    };
 
     const handleCellClick = (rowIndex, colIndex) => {
         const clickedNumber = board[rowIndex][colIndex];
-        
-        // 0またはnullのときはハイライトを無効にする
         if (clickedNumber !== 0) {
             setHighlightNumber(clickedNumber);
         } else {
@@ -62,7 +109,6 @@ const App = () => {
         // 連続入力モードがONの場合
         if (isContinuousMode && selectedNumber) {
             if (isNoteMode) {
-                // メモモード
                 const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
                 const cellNotes = newNotes[rowIndex][colIndex];
                 if (selectedNumber) {
@@ -76,42 +122,51 @@ const App = () => {
                     const newBoard = board.map(r => [...r]);
                     newBoard[rowIndex][colIndex] = 0;
                     setBoard(newBoard);
+                    
+                    // 状態を履歴に保存
+                    saveHistory(newBoard, newNotes);
                 }
             } else {
-                // 通常モード
                 if (selectedNumber) {
                     const newBoard = board.map(r => [...r]);
                     newBoard[rowIndex][colIndex] = selectedNumber;
-                    setBoard(newBoard);
-                    setHighlightNumber(selectedNumber);
+                    
                     const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
                     newNotes[rowIndex][colIndex].clear();
-                    setNotes(newNotes);
+                    const updatedNotes = updateNotesAfterInput(rowIndex, colIndex, selectedNumber, newNotes);
+                    
+                    setBoard(newBoard);
+                    setNotes(updatedNotes);
+                    setHighlightNumber(selectedNumber);
+                    
+                    // 状態を履歴に保存
+                    saveHistory(newBoard, updatedNotes);
                 }
             }
         } else {
-            // 連続入力モードがOFFの場合、セルを選択
             setSelectedCell({ row: rowIndex, col: colIndex });
         }
     };
 
     const handleNumberClick = (number, cell = selectedCell) => {
-        // セルが選択されていない場合は処理を中断
-        if (!selectedCell) {
-            // 連続入力モードがONの場合、押された数字を選択済みにする
-            if (isContinuousMode) {
+        if (isContinuousMode) {
+            if (selectedNumber !== number) {
+                // 別の数字を押した場合は、その数字を新しく選択
                 setSelectedNumber(number);
-                setHighlightNumber(number); // ハイライトも設定
+                setHighlightNumber(number);
+                setIsContinuousMode(false);
             }
             return;
         }
+        
+        if (!selectedCell) {
+            return;
+        }
 
-        // ... (以下は変更なし) ...
         const { row, col } = cell;
         if (initialGiven[row][col]) return;
 
         if (isNoteMode) {
-            // ... (メモのロジックは変更なし) ...
             const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
             const cellNotes = newNotes[row][col];
             if (cellNotes.has(number)) {
@@ -123,20 +178,28 @@ const App = () => {
             const newBoard = board.map(r => [...r]);
             newBoard[row][col] = 0;
             setBoard(newBoard);
+
+            saveHistory(newBoard, newNotes);
         } else {
-            // ... (確定のロジックは変更なし) ...
             const newBoard = board.map(r => [...r]);
             newBoard[row][col] = number;
-            setBoard(newBoard);
+            
             const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
             newNotes[row][col].clear();
-            setNotes(newNotes);
+            const updatedNotes = updateNotesAfterInput(row, col, number, newNotes);
+            
+            setBoard(newBoard);
+            setNotes(updatedNotes);
+            setHighlightNumber(number);
+            
+            // 状態を履歴に保存
+            saveHistory(newBoard, updatedNotes);
         }
         setHighlightNumber(number);
     };
 
     const handleClearClick = () => {
-        if (!selectedCell) return; // セルが選択されていない場合は処理を中断
+        if (!selectedCell) return;
         const { row, col } = selectedCell;
         if (initialGiven[row][col]) return;
 
@@ -149,6 +212,9 @@ const App = () => {
         setNotes(newNotes);
 
         setHighlightNumber(null);
+
+        // 状態を履歴に保存
+        saveHistory(newBoard, newNotes);
     };
 
     const toggleNoteMode = () => {
@@ -157,15 +223,58 @@ const App = () => {
             setSelectedNumber(null);
         }
     };
-
-    const toggleContinuousMode = () => {
-        setIsContinuousMode(!isContinuousMode);
-        if (isContinuousMode) {
+    
+    const handleLongPressToggle = (number) => {
+        if (isContinuousMode && selectedNumber === number) {
+            // 同じ数字を長押しでモード解除
+            setIsContinuousMode(false);
             setSelectedNumber(null);
-        }
-        if (!isContinuousMode) {
+            setHighlightNumber(null);
+        } else {
+            // 新しい数字を長押しでモードON
+            setIsContinuousMode(true);
+            setSelectedNumber(number);
+            setHighlightNumber(number);
             setSelectedCell(null);
         }
+    };
+
+    // 自動メモ機能のハンドラ
+    const handleAutoNoteClick = () => {
+        const newNotes = Array(9).fill(null).map(() => Array(9).fill(new Set()));
+        
+        for (let row = 0; row < 9; row++) {
+            for (let col = 0; col < 9; col++) {
+                if (board[row][col] === 0) {
+                    const possibleNumbers = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+                    for (let c = 0; c < 9; c++) {
+                        if (board[row][c] !== 0) {
+                            possibleNumbers.delete(board[row][c]);
+                        }
+                    }
+
+                    for (let r = 0; r < 9; r++) {
+                        if (board[r][col] !== 0) {
+                            possibleNumbers.delete(board[r][col]);
+                        }
+                    }
+
+                    const startRow = Math.floor(row / 3) * 3;
+                    const startCol = Math.floor(col / 3) * 3;
+                    for (let r = startRow; r < startRow + 3; r++) {
+                        for (let c = startCol; c < startCol + 3; c++) {
+                            if (board[r][c] !== 0) {
+                                possibleNumbers.delete(board[r][c]);
+                            }
+                        }
+                    }
+                    newNotes[row][col] = possibleNumbers;
+                }
+            }
+        }
+        setNotes(newNotes);
+        saveHistory(board, newNotes);
     };
 
     return (
@@ -183,6 +292,7 @@ const App = () => {
                 <Keypad
                     onNumberClick={handleNumberClick}
                     onClearClick={handleClearClick}
+                    onLongPressToggle={handleLongPressToggle}
                     isNoteMode={isNoteMode}
                     isContinuousMode={isContinuousMode}
                     selectedNumber={selectedNumber}
@@ -194,10 +304,17 @@ const App = () => {
                     メモ
                 </button>
                 <button
-                    className={`continuous-toggle-btn ${isContinuousMode ? 'active' : ''}`}
-                    onClick={toggleContinuousMode}
+                    className="auto-note-btn"
+                    onClick={handleAutoNoteClick}
                 >
-                    連続入力
+                    自動メモ
+                </button>
+                <button
+                    className="undo-btn"
+                    onClick={handleUndoClick}
+                    disabled={historyIndex.current === 0}
+                >
+                    戻る
                 </button>
             </div>
         </div>
