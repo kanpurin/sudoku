@@ -143,13 +143,14 @@ const App = () => {
         if (isContinuousMode) {
             if (selectedNumber !== number) {
                 setSelectedNumber(null);
-                setHighlightNumber(null);
+                setHighlightNumber(number);
                 setIsContinuousMode(false);
             }
             return;
         }
 
         if (!selectedCell) {
+            setHighlightNumber(number);
             return;
         }
 
@@ -210,6 +211,7 @@ const App = () => {
         } else {
             setIsContinuousMode(true);
             setSelectedNumber(number);
+            setHighlightNumber(number);
             setSelectedCell(null);
         }
     };
