@@ -9,14 +9,23 @@
 
 .controls {
     display: flex;
+    flex-direction: column; /* Keypadとボタンを縦に並べる */
+    align-items: center;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.button-group {
+    display: flex;
     flex-direction: row;
     align-items: center;
     gap: 10px;
 }
 
 .note-toggle-btn,
-.continuous-toggle-btn,
-.auto-note-btn { /* auto-note-btnを追加 */
+.auto-note-btn,
+.undo-btn,
+.input-section button {   
     padding: 10px 20px;
     font-size: 1em;
     cursor: pointer;
@@ -26,13 +35,41 @@
 }
 
 .note-toggle-btn.active {
-    background-color: #ff8888;
-    border-color: #aa5555;
-    font-weight: bold;
+    background-color: #88ff88;
+    border-color: #55aa55;
 }
 
-.continuous-toggle-btn.active {
-    background-color: #8888ff;
-    border-color: #5555aa;
-    font-weight: bold;
+.undo-btn:disabled {
+    cursor: not-allowed;
+    background-color: #eee;
+    color: #999;
+}
+
+.input-section {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.input-section textarea {
+    width: 100%;
+    max-width: 450px;
+    height: 120px; /* 高さを調整して改行に対応 */
+    font-size: 16px;
+    padding: 5px;
+    border: 1px solid #ccc;
+    resize: vertical; /* ユーザーが縦にリサイズできるようにする */
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.input-section button {
+    padding: 10px 20px;
+    font-size: 1em;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    background-color: #f0f0f0;
+    transition: background-color 0.2s;
 }

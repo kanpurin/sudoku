@@ -31,30 +31,30 @@ const App = () => {
     const [selectedNumber, setSelectedNumber] = useState(null);
     const [highlightNumber, setHighlightNumber] = useState(null);
 
-    // 状態の履歴を管理
-    const history = useRef([{ board: initialBoard, notes: notes }]);
+    const [inputBoardString, setInputBoardString] = useState(
+        initialBoard.map(row => row.join('')).join('\n')
+    );
+    const [given, setGiven] = useState(initialGiven);
+    
+    const history = useRef([{ board: initialBoard, notes: notes, given: initialGiven }]);
     const historyIndex = useRef(0);
 
-    const saveHistory = (newBoard, newNotes) => {
-        // 現在の履歴以降を削除
+    const saveHistory = (newBoard, newNotes, newGiven) => {
         history.current = history.current.slice(0, historyIndex.current + 1);
-        // 新しい状態を追加
-        history.current.push({ board: newBoard, notes: newNotes });
-        // 履歴インデックスを更新
+        history.current.push({ board: newBoard, notes: newNotes, given: newGiven });
         historyIndex.current = history.current.length - 1;
     };
 
     const handleUndoClick = () => {
         if (historyIndex.current > 0) {
-            // インデックスを1つ戻す
             historyIndex.current -= 1;
             const prevState = history.current[historyIndex.current];
             setBoard(prevState.board);
             setNotes(prevState.notes.map(row => row.map(cellNotes => new Set(cellNotes))));
+            setGiven(prevState.given);
         }
     };
 
-    // デバッグ情報を出力するuseEffectフック
     useEffect(() => {
         console.log('--- App State ---');
         console.log('selectedCell:', selectedCell);
@@ -66,21 +66,18 @@ const App = () => {
         console.log('-----------------');
     }, [selectedCell, isNoteMode, isContinuousMode, selectedNumber, highlightNumber, notes]);
 
-    // 新しく追加するヘルパー関数
+
     const updateNotesAfterInput = (rowIndex, colIndex, number, newNotes) => {
-        // 行のメモを更新
         for (let c = 0; c < 9; c++) {
             if (c !== colIndex) {
                 newNotes[rowIndex][c].delete(number);
             }
         }
-        // 列のメモを更新
         for (let r = 0; r < 9; r++) {
             if (r !== rowIndex) {
                 newNotes[r][colIndex].delete(number);
             }
         }
-        // ブロックのメモを更新
         const startRow = Math.floor(rowIndex / 3) * 3;
         const startCol = Math.floor(colIndex / 3) * 3;
         for (let r = startRow; r < startRow + 3; r++) {
@@ -101,12 +98,11 @@ const App = () => {
             setHighlightNumber(null);
         }
 
-        if (initialGiven[rowIndex][colIndex]) {
+        if (given[rowIndex][colIndex]) {
             setSelectedCell(null);
             return;
         }
-        
-        // 連続入力モードがONの場合
+
         if (isContinuousMode && selectedNumber) {
             if (isNoteMode) {
                 const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
@@ -122,25 +118,20 @@ const App = () => {
                     const newBoard = board.map(r => [...r]);
                     newBoard[rowIndex][colIndex] = 0;
                     setBoard(newBoard);
-                    
-                    // 状態を履歴に保存
-                    saveHistory(newBoard, newNotes);
+                    // 修正箇所: 連続入力モードでのメモ入力時に履歴を保存
+                    saveHistory(newBoard, newNotes, given);
                 }
             } else {
                 if (selectedNumber) {
                     const newBoard = board.map(r => [...r]);
                     newBoard[rowIndex][colIndex] = selectedNumber;
-                    
+                    setBoard(newBoard);
+                    setHighlightNumber(selectedNumber);
                     const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
                     newNotes[rowIndex][colIndex].clear();
                     const updatedNotes = updateNotesAfterInput(rowIndex, colIndex, selectedNumber, newNotes);
-                    
-                    setBoard(newBoard);
                     setNotes(updatedNotes);
-                    setHighlightNumber(selectedNumber);
-                    
-                    // 状態を履歴に保存
-                    saveHistory(newBoard, updatedNotes);
+                    saveHistory(newBoard, updatedNotes, given);
                 }
             }
         } else {
@@ -151,20 +142,19 @@ const App = () => {
     const handleNumberClick = (number, cell = selectedCell) => {
         if (isContinuousMode) {
             if (selectedNumber !== number) {
-                // 別の数字を押した場合は、その数字を新しく選択
-                setSelectedNumber(number);
-                setHighlightNumber(number);
+                setSelectedNumber(null);
+                setHighlightNumber(null);
                 setIsContinuousMode(false);
             }
             return;
         }
-        
+
         if (!selectedCell) {
             return;
         }
 
         const { row, col } = cell;
-        if (initialGiven[row][col]) return;
+        if (given[row][col]) return;
 
         if (isNoteMode) {
             const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
@@ -178,88 +168,68 @@ const App = () => {
             const newBoard = board.map(r => [...r]);
             newBoard[row][col] = 0;
             setBoard(newBoard);
-
-            saveHistory(newBoard, newNotes);
+            // 修正箇所: 通常モードでのメモ入力時に履歴を保存
+            saveHistory(newBoard, newNotes, given);
         } else {
             const newBoard = board.map(r => [...r]);
             newBoard[row][col] = number;
-            
+            setBoard(newBoard);
             const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
             newNotes[row][col].clear();
             const updatedNotes = updateNotesAfterInput(row, col, number, newNotes);
-            
-            setBoard(newBoard);
             setNotes(updatedNotes);
             setHighlightNumber(number);
-            
-            // 状態を履歴に保存
-            saveHistory(newBoard, updatedNotes);
+            saveHistory(newBoard, updatedNotes, given);
         }
-        setHighlightNumber(number);
     };
 
     const handleClearClick = () => {
         if (!selectedCell) return;
         const { row, col } = selectedCell;
-        if (initialGiven[row][col]) return;
+        if (given[row][col]) return;
 
         const newBoard = board.map(r => [...r]);
         newBoard[row][col] = 0;
         setBoard(newBoard);
-
         const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
         newNotes[row][col].clear();
         setNotes(newNotes);
-
         setHighlightNumber(null);
-
-        // 状態を履歴に保存
-        saveHistory(newBoard, newNotes);
+        saveHistory(newBoard, newNotes, given);
     };
 
     const toggleNoteMode = () => {
         setIsNoteMode(!isNoteMode);
-        if (isContinuousMode) {
-            setSelectedNumber(null);
-        }
     };
-    
+
     const handleLongPressToggle = (number) => {
         if (isContinuousMode && selectedNumber === number) {
-            // 同じ数字を長押しでモード解除
             setIsContinuousMode(false);
             setSelectedNumber(null);
             setHighlightNumber(null);
         } else {
-            // 新しい数字を長押しでモードON
             setIsContinuousMode(true);
             setSelectedNumber(number);
-            setHighlightNumber(number);
             setSelectedCell(null);
         }
     };
 
-    // 自動メモ機能のハンドラ
     const handleAutoNoteClick = () => {
         const newNotes = Array(9).fill(null).map(() => Array(9).fill(new Set()));
-        
         for (let row = 0; row < 9; row++) {
             for (let col = 0; col < 9; col++) {
                 if (board[row][col] === 0) {
                     const possibleNumbers = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9]);
-
                     for (let c = 0; c < 9; c++) {
                         if (board[row][c] !== 0) {
                             possibleNumbers.delete(board[row][c]);
                         }
                     }
-
                     for (let r = 0; r < 9; r++) {
                         if (board[r][col] !== 0) {
                             possibleNumbers.delete(board[r][col]);
                         }
                     }
-
                     const startRow = Math.floor(row / 3) * 3;
                     const startCol = Math.floor(col / 3) * 3;
                     for (let r = startRow; r < startRow + 3; r++) {
@@ -274,7 +244,51 @@ const App = () => {
             }
         }
         setNotes(newNotes);
-        saveHistory(board, newNotes);
+        // 自動メモ時も履歴を保存
+        saveHistory(board, newNotes, given);
+    };
+
+    const handleBoardInputChange = (e) => {
+        setInputBoardString(e.target.value);
+    };
+
+    const handleSetBoard = () => {
+        const cleanedString = inputBoardString.replace(/\s/g, '');
+
+        if (cleanedString.length !== 81) {
+            alert(`入力は81文字の数字でなければなりません。現在の文字数: ${cleanedString.length}`);
+            return;
+        }
+        
+        const newBoard = [];
+        const newGiven = []; // 新しい問題のgiven状態
+        let index = 0;
+        for (let i = 0; i < 9; i++) {
+            const row = [];
+            const givenRow = [];
+            for (let j = 0; j < 9; j++) {
+                const char = cleanedString[index];
+                const num = parseInt(char, 10);
+                if (isNaN(num) || num < 0 || num > 9) {
+                    alert("入力が無効です。0-9の数字のみを使用してください。");
+                    return;
+                }
+                row.push(num);
+                givenRow.push(num !== 0);
+                index++;
+            }
+            newBoard.push(row);
+            newGiven.push(givenRow);
+        }
+        setBoard(newBoard);
+        setGiven(newGiven);
+        setSelectedCell(null);
+        setHighlightNumber(null);
+        const newNotes = Array(9).fill(null).map(() => Array(9).fill(new Set()));
+        setNotes(newNotes);
+        // 新しい問題を設定したら履歴をリセット
+        history.current = [{ board: newBoard, notes: newNotes, given: newGiven }];
+        historyIndex.current = 0;
     };
 
     return (
@@ -282,7 +296,7 @@ const App = () => {
             <h1>ナンプレ</h1>
             <Board
                 board={board}
-                given={initialGiven}
+                given={given}
                 selectedCell={selectedCell}
                 onCellClick={handleCellClick}
                 notes={notes}
@@ -297,25 +311,38 @@ const App = () => {
                     isContinuousMode={isContinuousMode}
                     selectedNumber={selectedNumber}
                 />
-                <button
-                    className={`note-toggle-btn ${isNoteMode ? 'active' : ''}`}
-                    onClick={toggleNoteMode}
-                >
-                    メモ
-                </button>
-                <button
-                    className="auto-note-btn"
-                    onClick={handleAutoNoteClick}
-                >
-                    自動メモ
-                </button>
-                <button
-                    className="undo-btn"
-                    onClick={handleUndoClick}
-                    disabled={historyIndex.current === 0}
-                >
-                    戻る
-                </button>
+                <div className="button-group">
+                    <button
+                        className={`note-toggle-btn ${isNoteMode ? 'active' : ''}`}
+                        onClick={toggleNoteMode}
+                    >
+                        メモ
+                    </button>
+                    <button
+                        className="auto-note-btn"
+                        onClick={handleAutoNoteClick}
+                    >
+                        自動メモ
+                    </button>
+                    <button
+                        className="undo-btn"
+                        onClick={handleUndoClick}
+                        disabled={historyIndex.current === 0}
+                    >
+                        戻る
+                    </button>
+                </div>
+            </div>
+            <div className="input-section">
+                <textarea
+                    value={inputBoardString}
+                    onChange={handleBoardInputChange}
+                    rows="9"
+                    cols="9"
+                    maxLength="81"
+                    placeholder="9x9の数字を81文字で入力してください（空セルは0）"
+                />
+                <button onClick={handleSetBoard}>設定</button>
             </div>
         </div>
     );
