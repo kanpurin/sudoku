@@ -5,7 +5,7 @@ import './Cell.css';
 const Cell = ({ value, given, onClick, isSelected, isHighlighted, notes, highlightNumber }) => {
     return (
         <div
-            className={`cell ${given ? 'given' : ''} ${isSelected ? 'selected' : ''} ${isHighlighted ? 'highlighted' : ''}`}
+            className={`cell ${isSelected ? 'selected' : ''} ${isHighlighted ? 'highlighted' : (given ? 'given' : '')} ` }
             onClick={onClick}
         >
             <div className="cell-content">

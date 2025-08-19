@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useState } from 'react';
+import React, { useState, useEffect  } from 'react';
 import Board from './Board';
 import Keypad from './Keypad';
 import './App.css';
@@ -29,22 +29,43 @@ const App = () => {
     const [isNoteMode, setIsNoteMode] = useState(false);
     const [isContinuousMode, setIsContinuousMode] = useState(false);
     const [selectedNumber, setSelectedNumber] = useState(null);
-
-    // 強調表示する数字を保持するステート
     const [highlightNumber, setHighlightNumber] = useState(null);
 
-    const handleCellClick = (rowIndex, colIndex) => {
-        // 連続入力モードがONの場合
-        if (isContinuousMode) {
-            // 与えられた数字のセルは操作不可
-            if (initialGiven[rowIndex][colIndex]) return;
+    // デバッグ情報を出力するuseEffectフック
+    useEffect(() => {
+        console.log('--- App State ---');
+        console.log('selectedCell:', selectedCell);
+        console.log('isNoteMode:', isNoteMode);
+        console.log('isContinuousMode:', isContinuousMode);
+        console.log('selectedNumber:', selectedNumber);
+        console.log('highlightNumber:', highlightNumber);
+        console.log('notes:', notes.map(row => row.map(cellNotes => Array.from(cellNotes))));
+        console.log('-----------------');
+    }, [selectedCell, isNoteMode, isContinuousMode, selectedNumber, highlightNumber, notes]);
 
-            // メモモードか、確定モードかを判断
+
+    const handleCellClick = (rowIndex, colIndex) => {
+        const clickedNumber = board[rowIndex][colIndex];
+        
+        // 0またはnullのときはハイライトを無効にする
+        if (clickedNumber !== 0) {
+            setHighlightNumber(clickedNumber);
+        } else {
+            setHighlightNumber(null);
+        }
+
+        if (initialGiven[rowIndex][colIndex]) {
+            setSelectedCell(null);
+            return;
+        }
+        
+        // 連続入力モードがONの場合
+        if (isContinuousMode && selectedNumber) {
             if (isNoteMode) {
-                // メモモードの場合
+                // メモモード
                 const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
                 const cellNotes = newNotes[rowIndex][colIndex];
-                if (selectedNumber) { // selectedNumberが存在するか確認
+                if (selectedNumber) {
                     if (cellNotes.has(selectedNumber)) {
                         cellNotes.delete(selectedNumber);
                     } else {
@@ -57,8 +78,8 @@ const App = () => {
                     setBoard(newBoard);
                 }
             } else {
-                // 通常モードの場合
-                if (selectedNumber) { // selectedNumberが存在するか確認
+                // 通常モード
+                if (selectedNumber) {
                     const newBoard = board.map(r => [...r]);
                     newBoard[rowIndex][colIndex] = selectedNumber;
                     setBoard(newBoard);
@@ -70,14 +91,9 @@ const App = () => {
             }
         } else {
             // 連続入力モードがOFFの場合、セルを選択
-            if (initialGiven[rowIndex][colIndex]) {
-                setSelectedCell(null);
-            } else {
-                setSelectedCell({ row: rowIndex, col: colIndex });
-            }
+            setSelectedCell({ row: rowIndex, col: colIndex });
         }
     };
-
 
     const handleNumberClick = (number, cell = selectedCell) => {
         // セルが選択されていない場合は処理を中断
@@ -161,7 +177,7 @@ const App = () => {
                 selectedCell={selectedCell}
                 onCellClick={handleCellClick}
                 notes={notes}
-                highlightNumber={highlightNumber} // 新しいプロパティを渡す
+                highlightNumber={highlightNumber}
             />
             <div className="controls">
                 <Keypad

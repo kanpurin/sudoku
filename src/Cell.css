@@ -17,10 +17,6 @@
     cursor: default;
 }
 
-.cell.selected {
-    background-color: #ffffdd;
-}
-
 .cell-content {
     width: 100%;
     height: 100%;
