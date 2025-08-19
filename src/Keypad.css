@@ -1,0 +1,26 @@
+/* src/Keypad.css */
+.keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 60px);
+    gap: 5px;
+    margin-top: 20px;
+}
+
+.keypad-button {
+    width: 60px;
+    height: 60px;
+    font-size: 1.5em;
+    font-weight: bold;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    background-color: #f0f0f0;
+    transition: background-color 0.2s;
+}
+
+.keypad-button:hover {
+    background-color: #ddd;
+}
+
+.clear-button {
+    grid-column: span 3;
+}

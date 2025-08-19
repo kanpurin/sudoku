@@ -1,0 +1,63 @@
+/* src/Board.css */
+.board {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    grid-template-rows: repeat(9, 1fr); /* 行方向も1frに */
+    gap: 1px;
+    border: 2px solid #333;
+    background-color: #333;
+}
+
+.row {
+    display: contents;
+}
+
+.cell {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5em;
+    font-weight: bold;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+    background-color: white; /* セルの背景を白色に設定 */
+    cursor: pointer;
+}
+
+.cell.given {
+    background-color: #ddd;
+    cursor: default;
+}
+
+.cell.selected {
+    background-color: #ffffdd; /* 選択されたセルの背景色 */
+}
+
+.cell.error {
+    background-color: #ffcccc;
+}
+
+/* 3x3のブロックの境界線を太くする */
+.board > .row:nth-child(3n) > .cell {
+    border-bottom: 2px solid #333;
+}
+
+.board > .row:nth-child(1) > .cell,
+.board > .row:nth-child(2) > .cell {
+    border-bottom: 1px solid #ccc;
+}
+
+.board > .row > .cell:nth-child(3n) {
+    border-right: 2px solid #333;
+}
+
+.board > .row > .cell:nth-child(1),
+.board > .row > .cell:nth-child(2) {
+    border-right: 1px solid #ccc;
+}
+
+/* 左上の角のボーダー調整 */
+.board > .row:nth-child(3n) > .cell:nth-child(3n) {
+    border-bottom: 2px solid #333;
+    border-right: 2px solid #333;
+}
