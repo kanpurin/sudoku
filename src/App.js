@@ -435,7 +435,6 @@ const App = () => {
 
     return (
         <div className="app">
-            <h1>ナンプレ</h1>
             <Board
                 board={board}
                 given={given}
