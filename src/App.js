@@ -253,6 +253,7 @@ const App = () => {
     };
 
     const handleSetBoard = () => {
+        // 入力文字列から改行やスペースを削除
         const cleanedString = inputBoardString.replace(/\s/g, '');
 
         if (cleanedString.length !== 81) {
@@ -261,7 +262,7 @@ const App = () => {
         }
         
         const newBoard = [];
-        const newGiven = []; // 新しい問題のgiven状態
+        const newGiven = [];
         let index = 0;
         for (let i = 0; i < 9; i++) {
             const row = [];
@@ -286,9 +287,101 @@ const App = () => {
         setHighlightNumber(null);
         const newNotes = Array(9).fill(null).map(() => Array(9).fill(new Set()));
         setNotes(newNotes);
-        // 新しい問題を設定したら履歴をリセット
         history.current = [{ board: newBoard, notes: newNotes, given: newGiven }];
         historyIndex.current = 0;
+    };
+
+    const handleFillSingle = () => {
+        let cellsUpdatedInLoop = false;
+        let newBoard = board.map(row => [...row]);
+        let newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
+
+        do {
+            cellsUpdatedInLoop = false;
+            
+            // 1. 裸のシングル (Naked Single) を探して埋める
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (newBoard[r][c] === 0 && newNotes[r][c].size === 1) {
+                        const numberToFill = Array.from(newNotes[r][c])[0];
+                        newBoard[r][c] = numberToFill;
+                        newNotes[r][c].clear();
+                        newNotes = updateNotesAfterInput(r, c, numberToFill, newNotes);
+                        cellsUpdatedInLoop = true;
+                    }
+                }
+            }
+
+            // 2. 隠れたシングル (Hidden Single) を探して埋める
+            for (let num = 1; num <= 9; num++) {
+                // 行をチェック
+                for (let r = 0; r < 9; r++) {
+                    const foundCells = [];
+                    for (let c = 0; c < 9; c++) {
+                        if (newBoard[r][c] === 0 && newNotes[r][c].has(num)) {
+                            foundCells.push({ row: r, col: c });
+                        }
+                    }
+                    if (foundCells.length === 1) {
+                        const { row, col } = foundCells[0];
+                        newBoard[row][col] = num;
+                        newNotes[row][col].clear();
+                        newNotes = updateNotesAfterInput(row, col, num, newNotes);
+                        cellsUpdatedInLoop = true;
+                    }
+                }
+
+                // 列をチェック
+                for (let c = 0; c < 9; c++) {
+                    const foundCells = [];
+                    for (let r = 0; r < 9; r++) {
+                        if (newBoard[r][c] === 0 && newNotes[r][c].has(num)) {
+                            foundCells.push({ row: r, col: c });
+                        }
+                    }
+                    if (foundCells.length === 1) {
+                        const { row, col } = foundCells[0];
+                        newBoard[row][col] = num;
+                        newNotes[row][col].clear();
+                        newNotes = updateNotesAfterInput(row, col, num, newNotes);
+                        cellsUpdatedInLoop = true;
+                    }
+                }
+
+                // ブロックをチェック
+                for (let br = 0; br < 3; br++) {
+                    for (let bc = 0; bc < 3; bc++) {
+                        const foundCells = [];
+                        const startRow = br * 3;
+                        const startCol = bc * 3;
+                        for (let r = startRow; r < startRow + 3; r++) {
+                            for (let c = startCol; c < startCol + 3; c++) {
+                                if (newBoard[r][c] === 0 && newNotes[r][c].has(num)) {
+                                    foundCells.push({ row: r, col: c });
+                                }
+                            }
+                        }
+                        if (foundCells.length === 1) {
+                            const { row, col } = foundCells[0];
+                            newBoard[row][col] = num;
+                            newNotes[row][col].clear();
+                            newNotes = updateNotesAfterInput(row, col, num, newNotes);
+                            cellsUpdatedInLoop = true;
+                        }
+                    }
+                }
+            }
+        } while (cellsUpdatedInLoop);
+
+        // 変更があった場合のみ状態を更新して履歴を保存
+        if (JSON.stringify(newBoard) !== JSON.stringify(board)) {
+            setBoard(newBoard);
+            setNotes(newNotes);
+            saveHistory(newBoard, newNotes, given);
+            setIsContinuousMode(false);
+            setSelectedNumber(null);
+            setHighlightNumber(null);
+        }
     };
 
     return (
@@ -325,6 +418,12 @@ const App = () => {
                         自動メモ
                     </button>
                     <button
+                        className="fill-single-btn"
+                        onClick={handleFillSingle}
+                    >
+                        一択埋め
+                    </button>
+                    <button
                         className="undo-btn"
                         onClick={handleUndoClick}
                         disabled={historyIndex.current === 0}
@@ -339,7 +438,6 @@ const App = () => {
                     onChange={handleBoardInputChange}
                     rows="9"
                     cols="9"
-                    maxLength="81"
                     placeholder="9x9の数字を81文字で入力してください（空セルは0）"
                 />
                 <button onClick={handleSetBoard}>設定</button>
