@@ -384,6 +384,53 @@ const App = () => {
         }
     };
 
+    const checkBoard = () => {
+        // ボードのコピーを作成
+        const currentBoard = board.map(row => [...row]);
+
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                const value = currentBoard[r][c];
+                if (value === 0) continue; // 空のセルはチェックしない
+
+                // 一時的にそのセルを0にして、重複をチェック
+                currentBoard[r][c] = 0;
+
+                // 行の重複をチェック
+                for (let i = 0; i < 9; i++) {
+                    if (currentBoard[r][i] === value) {
+                        alert(`エラー: 行 ${r + 1} に数字 ${value} が重複しています。`);
+                        return;
+                    }
+                }
+
+                // 列の重複をチェック
+                for (let i = 0; i < 9; i++) {
+                    if (currentBoard[i][c] === value) {
+                        alert(`エラー: 列 ${c + 1} に数字 ${value} が重複しています。`);
+                        return;
+                    }
+                }
+
+                // ブロックの重複をチェック
+                const startRow = Math.floor(r / 3) * 3;
+                const startCol = Math.floor(c / 3) * 3;
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 3; j++) {
+                        if (currentBoard[startRow + i][startCol + j] === value) {
+                            alert(`エラー: ブロック (${startRow / 3 + 1}, ${startCol / 3 + 1}) に数字 ${value} が重複しています。`);
+                            return;
+                        }
+                    }
+                }
+                
+                // チェック後、元の値に戻す
+                currentBoard[r][c] = value;
+            }
+        }
+        alert("正解！");
+    };
+
     return (
         <div className="app">
             <h1>ナンプレ</h1>
@@ -403,14 +450,12 @@ const App = () => {
                     isNoteMode={isNoteMode}
                     isContinuousMode={isContinuousMode}
                     selectedNumber={selectedNumber}
+                    // キーパッドにボタンのハンドラを渡す
+                    toggleNoteMode={toggleNoteMode}
+                    handleUndoClick={handleUndoClick}
+                    historyIndex={historyIndex.current}
                 />
                 <div className="button-group">
-                    <button
-                        className={`note-toggle-btn ${isNoteMode ? 'active' : ''}`}
-                        onClick={toggleNoteMode}
-                    >
-                        メモ
-                    </button>
                     <button
                         className="auto-note-btn"
                         onClick={handleAutoNoteClick}
@@ -424,11 +469,10 @@ const App = () => {
                         一択埋め
                     </button>
                     <button
-                        className="undo-btn"
-                        onClick={handleUndoClick}
-                        disabled={historyIndex.current === 0}
+                        className="check-btn"
+                        onClick={checkBoard}
                     >
-                        戻る
+                        正誤判定
                     </button>
                 </div>
             </div>

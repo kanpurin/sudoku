@@ -74,3 +74,12 @@
     background-color: #f0f0f0;
     transition: background-color 0.2s;
 }
+
+.check-btn {
+    padding: 10px 20px;
+    font-size: 1em;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    background-color: #f0f0f0;
+    transition: background-color 0.2s;
+}

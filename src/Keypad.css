@@ -1,36 +1,65 @@
 /* src/Keypad.css */
+
+.keypad-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
 .keypad {
     display: grid;
-    grid-template-columns: repeat(3, 60px);
-    gap: 5px;
-    margin-top: 20px;
+    grid-template-columns: repeat(3, 1fr);
+    grid-gap: 10px;
+    width: 100%;
+    max-width: 300px;
 }
 
-.keypad-button {
-    width: 60px;
-    height: 60px;
-    font-size: 1.5em;
+.key {
+    height: 70px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    /* 修正箇所: border-radiusを削除 */
+    font-size: 2em;
     font-weight: bold;
     cursor: pointer;
-    border: 1px solid #ccc;
-    background-color: #f0f0f0;
-    transition: background-color 0.2s;
+    user-select: none;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    touch-action: manipulation;
 }
 
-.keypad-button:hover {
-    background-color: #ddd;
+.key:hover {
+    background-color: #e0e0e0;
 }
 
-.clear-button {
-    grid-column: span 3;
+.key:active {
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
 }
 
-.keypad-button.note-mode {
-    font-size: 1em; /* メモモードでは少し小さく */
-    color: #888;
+.key.continuous-active {
+    background-color: #007bff;
+    color: white;
 }
 
-.keypad-button.selected-number {
+/* その他のキーのスタイルを共通化 */
+.key.clear-key,
+.key.note-key,
+.key.undo-key {
+    font-size: 1em;
+    padding: 10px 0;
+    height: auto;
+}
+
+.key.note-key.active {
     background-color: #88ff88;
     border-color: #55aa55;
+    color: initial;
+}
+
+.key.undo-key.disabled {
+    cursor: not-allowed;
+    background-color: #eee;
+    color: #999;
 }

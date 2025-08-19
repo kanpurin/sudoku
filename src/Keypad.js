@@ -1,44 +1,90 @@
 // src/Keypad.js
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import './Keypad.css';
 
-const Keypad = ({ onNumberClick, onClearClick, onLongPressToggle, isNoteMode, isContinuousMode, selectedNumber }) => {
+const Keypad = ({
+    onNumberClick,
+    onClearClick,
+    onLongPressToggle,
+    isNoteMode,
+    isContinuousMode,
+    selectedNumber,
+    toggleNoteMode,
+    handleUndoClick,
+    historyIndex
+}) => {
+    // useRefとuseStateを再定義
+    const timeoutRef = useRef(null);
+    const [isLongPress, setIsLongPress] = useState(false);
+
+    const handleTouchStart = (e, number) => {
+        // e.preventDefault();
+        setIsLongPress(false);
+        if (isNoteMode) return;
+        timeoutRef.current = setTimeout(() => {
+            onLongPressToggle(number);
+            setIsLongPress(true);
+        }, 500); // 500msで長押しと判定
+    };
+
+    const handleTouchEnd = () => {
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+        }
+    };
+
+    const handleNumberClickInternal = (number) => {
+        if (isLongPress) {
+            setIsLongPress(false);
+            return;
+        }
+        onNumberClick(number);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        };
+    }, []);
+
     const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-    const pressTimer = useRef(null);
-
-    const handlePressStart = (number) => {
-        // 0.5秒後に長押しハンドラを実行
-        pressTimer.current = setTimeout(() => {
-            onLongPressToggle(number); // 長押しされた数字を渡す
-        }, 500);
-    };
-
-    const handlePressEnd = () => {
-        // 指を離したらタイマーをクリア
-        clearTimeout(pressTimer.current);
-    };
 
     return (
-        <div className="keypad">
-            {numbers.map((number) => (
-                <button
-                    key={number}
-                    className={`keypad-button 
-                        ${isContinuousMode && selectedNumber === number ? 'selected-number' : ''}
-                    `}
-                    onClick={() => onNumberClick(number)}
-                    onMouseDown={() => handlePressStart(number)}
-                    onMouseUp={handlePressEnd}
-                    onMouseLeave={handlePressEnd}
-                    onTouchStart={() => handlePressStart(number)}
-                    onTouchEnd={handlePressEnd}
+        <div className="keypad-container">
+            <div className="keypad">
+                {numbers.map(number => (
+                    <div
+                        key={number}
+                        className={`key ${selectedNumber === number ? 'continuous-active' : ''}`}
+                        onClick={() => handleNumberClickInternal(number)}
+                        onMouseDown={e => handleTouchStart(e, number)}
+                        onMouseUp={handleTouchEnd}
+                        onMouseLeave={handleTouchEnd}
+                        onTouchStart={e => handleTouchStart(e, number)}
+                        onTouchEnd={handleTouchEnd}
+                    >
+                        {number}
+                    </div>
+                ))}
+                <div className="key clear-key" onClick={onClearClick}>
+                    クリア
+                </div>
+                <div 
+                    className={`key note-key ${isNoteMode ? 'active' : ''}`}
+                    onClick={toggleNoteMode}
                 >
-                    {number}
-                </button>
-            ))}
-            <button className="keypad-button clear-button" onClick={onClearClick}>
-                C
-            </button>
+                    メモ
+                </div>
+                <div 
+                    className={`key undo-key ${historyIndex === 0 ? 'disabled' : ''}`}
+                    onClick={handleUndoClick}
+                >
+                    戻る
+                </div>
+            </div>
         </div>
     );
 };
