@@ -8,8 +8,18 @@
     justify-content: center;
     align-items: center;
     position: relative;
-    cursor: pointer;
     background-color: white;
+}
+
+/* 中央20px四方の透明クリックゾーン */
+.click-area {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
 }
 
 .cell.given {

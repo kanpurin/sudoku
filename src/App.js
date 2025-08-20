@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import Board from './Board';
 import Keypad from './Keypad';
 import './App.css';
@@ -54,18 +54,6 @@ const App = () => {
             setGiven(prevState.given);
         }
     };
-
-    useEffect(() => {
-        console.log('--- App State ---');
-        console.log('selectedCell:', selectedCell);
-        console.log('isNoteMode:', isNoteMode);
-        console.log('isContinuousMode:', isContinuousMode);
-        console.log('selectedNumber:', selectedNumber);
-        console.log('highlightNumber:', highlightNumber);
-        console.log('notes:', notes.map(row => row.map(cellNotes => Array.from(cellNotes))));
-        console.log('-----------------');
-    }, [selectedCell, isNoteMode, isContinuousMode, selectedNumber, highlightNumber, notes]);
-
 
     const updateNotesAfterInput = (rowIndex, colIndex, number, newNotes) => {
         for (let c = 0; c < 9; c++) {

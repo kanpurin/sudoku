@@ -5,8 +5,7 @@ import './Cell.css';
 const Cell = ({ value, given, onClick, isSelected, isHighlighted, notes, highlightNumber }) => {
     return (
         <div
-            className={`cell ${isSelected ? 'selected' : ''} ${isHighlighted ? 'highlighted' : (given ? 'given' : '')} ` }
-            onClick={onClick}
+            className={`cell ${isSelected ? 'selected' : ''} ${isHighlighted ? 'highlighted' : (given ? 'given' : '')}`}
         >
             <div className="cell-content">
                 {value !== 0 ? (
@@ -23,8 +22,12 @@ const Cell = ({ value, given, onClick, isSelected, isHighlighted, notes, highlig
                     </div>
                 )}
             </div>
+
+            {/* 中央だけクリック可能な透明の当たり判定 */}
+            <div className="click-area" onClick={onClick}></div>
         </div>
     );
 };
+
 
 export default Cell;
