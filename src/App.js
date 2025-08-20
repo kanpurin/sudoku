@@ -178,9 +178,9 @@ const App = () => {
             newNotes[row][col].clear();
             const updatedNotes = updateNotesAfterInput(row, col, number, newNotes);
             setNotes(updatedNotes);
-            setHighlightNumber(number);
             saveHistory(newBoard, updatedNotes, given);
         }
+        setHighlightNumber(number);
     };
 
     const handleClearClick = () => {
