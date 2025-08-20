@@ -253,6 +253,10 @@ const App = () => {
         setInputBoardString(e.target.value);
     };
 
+    const handleClearBoardInput = () => {
+        setInputBoardString('');
+    };
+
     const handleSetBoard = () => {
         // 入力文字列から改行やスペースを削除
         const cleanedString = inputBoardString.replace(/\s/g, '');
@@ -484,7 +488,10 @@ const App = () => {
                     cols="9"
                     placeholder="9x9の数字を81文字で入力してください（空セルは0）"
                 />
-                <button onClick={handleSetBoard}>設定</button>
+                <div className="input-buttons">
+                    <button onClick={handleSetBoard}>設定</button>
+                    <button onClick={handleClearBoardInput}>削除</button>
+                </div>
             </div>
         </div>
     );
