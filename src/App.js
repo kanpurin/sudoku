@@ -142,9 +142,10 @@ const App = () => {
     const handleNumberClick = (number, cell = selectedCell) => {
         if (isContinuousMode) {
             if (selectedNumber !== number) {
-                setSelectedNumber(null);
+                setSelectedNumber(number);
                 setHighlightNumber(number);
-                setIsContinuousMode(false);
+                setIsContinuousMode(true);
+                setSelectedCell(null);
             }
             return;
         }
