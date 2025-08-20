@@ -396,7 +396,11 @@ const App = () => {
         for (let r = 0; r < 9; r++) {
             for (let c = 0; c < 9; c++) {
                 const value = currentBoard[r][c];
-                if (value === 0) continue; // 空のセルはチェックしない
+                if (value === 0) {
+                    // 空セルがある場合はエラー
+                    alert("エラー: 行 " + (r + 1) + ", 列 " + (c + 1) + " が空です。");
+                    return;
+                }
 
                 // 一時的にそのセルを0にして、重複をチェック
                 currentBoard[r][c] = 0;
