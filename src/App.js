@@ -55,6 +55,16 @@ const App = () => {
         }
     };
 
+    const handleRedoClick = () => {
+        if (historyIndex.current < history.current.length - 1) {
+            historyIndex.current += 1;
+            const nextState = history.current[historyIndex.current];
+            setBoard(nextState.board);
+            setNotes(nextState.notes.map(row => row.map(cellNotes => new Set(cellNotes))));
+            setGiven(nextState.given);
+        }
+    };
+
     const updateNotesAfterInput = (rowIndex, colIndex, number, newNotes) => {
         for (let c = 0; c < 9; c++) {
             if (c !== colIndex) {
@@ -438,12 +448,12 @@ const App = () => {
                     onClearClick={handleClearClick}
                     onLongPressToggle={handleLongPressToggle}
                     isNoteMode={isNoteMode}
-                    isContinuousMode={isContinuousMode}
                     selectedNumber={selectedNumber}
-                    // キーパッドにボタンのハンドラを渡す
                     toggleNoteMode={toggleNoteMode}
                     handleUndoClick={handleUndoClick}
+                    handleRedoClick={handleRedoClick}
                     historyIndex={historyIndex.current}
+                    historyLength={history.current.length}
                 />
                 <div className="button-group">
                     <button

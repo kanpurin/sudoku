@@ -7,11 +7,12 @@ const Keypad = ({
     onClearClick,
     onLongPressToggle,
     isNoteMode,
-    isContinuousMode,
     selectedNumber,
     toggleNoteMode,
     handleUndoClick,
-    historyIndex
+    handleRedoClick,
+    historyIndex,
+    historyLength
 }) => {
     // useRefとuseStateを再定義
     const timeoutRef = useRef(null);
@@ -31,6 +32,7 @@ const Keypad = ({
             clearTimeout(timeoutRef.current);
             timeoutRef.current = null;
         }
+        console.log(historyIndex === historyLength - 1);
     };
 
     const handleNumberClickInternal = (number) => {
@@ -68,9 +70,6 @@ const Keypad = ({
                         {number}
                     </div>
                 ))}
-                <div className="key clear-key" onClick={onClearClick}>
-                    クリア
-                </div>
                 <div 
                     className={`key note-key ${isNoteMode ? 'active' : ''}`}
                     onClick={toggleNoteMode}
@@ -82,6 +81,15 @@ const Keypad = ({
                     onClick={handleUndoClick}
                 >
                     戻る
+                </div>
+                <div 
+                    className={`key redo-key ${historyIndex === historyLength - 1 ? 'disabled' : ''}`}
+                    onClick={handleRedoClick}
+                >
+                    やり直し
+                </div>
+                <div className="key clear-key" onClick={onClearClick}>
+                    クリア
                 </div>
             </div>
         </div>

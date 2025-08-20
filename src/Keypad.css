@@ -46,6 +46,7 @@
 /* その他のキーのスタイルを共通化 */
 .key.clear-key,
 .key.note-key,
+.key.redo-key,
 .key.undo-key {
     font-size: 1em;
     padding: 10px 0;
@@ -59,6 +60,12 @@
 }
 
 .key.undo-key.disabled {
+    cursor: not-allowed;
+    background-color: #eee;
+    color: #999;
+}
+
+.key.redo-key.disabled {
     cursor: not-allowed;
     background-color: #eee;
     color: #999;
