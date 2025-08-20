@@ -20,7 +20,6 @@ const Keypad = ({
     const handleTouchStart = (e, number) => {
         // e.preventDefault();
         setIsLongPress(false);
-        if (isNoteMode) return;
         timeoutRef.current = setTimeout(() => {
             onLongPressToggle(number);
             setIsLongPress(true);
