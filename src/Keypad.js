@@ -32,7 +32,6 @@ const Keypad = ({
             clearTimeout(timeoutRef.current);
             timeoutRef.current = null;
         }
-        console.log(historyIndex === historyLength - 1);
     };
 
     const handleNumberClickInternal = (number) => {
