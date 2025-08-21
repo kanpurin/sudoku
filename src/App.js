@@ -241,7 +241,6 @@ const App = () => {
         if (isContinuousMode && selectedNumber === number) {
             setIsContinuousMode(false);
             setSelectedNumber(null);
-            setHighlightNumber(null);
         } else {
             setIsContinuousMode(true);
             setSelectedNumber(number);
