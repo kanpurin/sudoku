@@ -26,6 +26,8 @@
 .auto-note-btn,
 .undo-btn,
 .fill-single-btn,
+.naked-subset-btn,
+.check-btn,
 .input-section button {   
     padding: 10px 20px;
     font-size: 1em;
@@ -44,15 +46,6 @@
     cursor: not-allowed;
     background-color: #eee;
     color: #999;
-}
-
-.check-btn {
-    padding: 10px 20px;
-    font-size: 1em;
-    cursor: pointer;
-    border: 1px solid #ccc;
-    background-color: #f0f0f0;
-    transition: background-color 0.2s;
 }
 
 .input-section {

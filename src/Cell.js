@@ -2,7 +2,16 @@
 import React from 'react';
 import './Cell.css';
 
-const Cell = ({ value, given, onClick, isSelected, isHighlighted, notes, highlightNumber }) => {
+const Cell = ({ 
+    value, 
+    given, 
+    onClick, 
+    isSelected, 
+    isHighlighted, 
+    notes, 
+    highlightNumber,
+    isNakedSubsetCell
+}) => {
     return (
         <div
             className={`cell ${isSelected ? 'selected' : ''} ${isHighlighted ? 'highlighted' : (given ? 'given' : '')}`}
@@ -13,7 +22,10 @@ const Cell = ({ value, given, onClick, isSelected, isHighlighted, notes, highlig
                 ) : (
                     <div className="notes-container">
                         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                            <div key={num} className={`note-cell ${notes.has(num) && num === highlightNumber ? 'highlighted-note' : ''}`}>
+                            <div 
+                                key={num} 
+                                className={`note-cell ${notes.has(num) && num === highlightNumber ? 'highlighted-note' : ''} ${isNakedSubsetCell && notes.has(num) ? 'naked-subset-note' : ''}`}
+                            >
                                 {notes.has(num) && (
                                     <span className="note-number">{num}</span>
                                 )}

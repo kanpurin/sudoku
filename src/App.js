@@ -6,19 +6,49 @@ import './App.css';
 
 // 初期ナンプレ問題
 const initialBoard = [
-    [5, 3, 0, 0, 7, 0, 0, 0, 0],
-    [6, 0, 0, 1, 9, 5, 0, 0, 0],
-    [0, 9, 8, 0, 0, 0, 0, 6, 0],
-    [8, 0, 0, 0, 6, 0, 0, 0, 3],
-    [4, 0, 0, 8, 0, 3, 0, 0, 1],
-    [7, 0, 0, 0, 2, 0, 0, 0, 6],
-    [0, 6, 0, 0, 0, 0, 2, 8, 0],
-    [0, 0, 0, 4, 1, 9, 0, 0, 5],
-    [0, 0, 0, 0, 8, 0, 0, 7, 9]
+    [8, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 3, 6, 0, 0, 0, 0, 0],
+    [0, 7, 0, 0, 9, 0, 2, 0, 0],
+    [0, 5, 0, 0, 0, 7, 0, 0, 0],
+    [0, 0, 0, 0, 4, 5, 7, 0, 0],
+    [0, 0, 0, 1, 0, 0, 0, 3, 0],
+    [0, 0, 1, 0, 0, 0, 0, 6, 8],
+    [0, 0, 8, 5, 0, 0, 0, 1, 0],
+    [0, 9, 0, 0, 0, 0, 4, 0, 0]
 ];
 
 // 初期ボードの「与えられた数字」の状態を保持
 const initialGiven = initialBoard.map(row => row.map(cell => cell !== 0));
+
+// ヘルパー関数: Setをビットマスクに変換
+const toBitmask = (notesSet) => {
+    let mask = 0;
+    notesSet.forEach(num => {
+        mask |= (1 << (num - 1));
+    });
+    return mask;
+};
+
+// ヘルパー関数: ビットマスクから数字のリストを生成
+const toNumbers = (mask) => {
+    const numbers = [];
+    for (let i = 0; i < 9; i++) {
+        if ((mask >> i) & 1) {
+            numbers.push(i + 1);
+        }
+    }
+    return numbers;
+};
+
+// ヘルパー関数: ポップカウント (ビットマスクの1の数を数える)
+const popcount = (mask) => {
+    let count = 0;
+    while (mask !== 0) {
+        mask &= (mask - 1);
+        count++;
+    }
+    return count;
+};
 
 const App = () => {
     const [board, setBoard] = useState(initialBoard);
@@ -35,6 +65,7 @@ const App = () => {
         initialBoard.map(row => row.join('')).join('\n')
     );
     const [given, setGiven] = useState(initialGiven);
+    const [highlightedNakedSubset, setHighlightedNakedSubset] = useState([]);
     
     const history = useRef([{ board: initialBoard, notes: notes, given: initialGiven }]);
     const historyIndex = useRef(0);
@@ -52,6 +83,7 @@ const App = () => {
             setBoard(prevState.board);
             setNotes(prevState.notes.map(row => row.map(cellNotes => new Set(cellNotes))));
             setGiven(prevState.given);
+            setHighlightedNakedSubset([]);
         }
     };
 
@@ -62,6 +94,7 @@ const App = () => {
             setBoard(nextState.board);
             setNotes(nextState.notes.map(row => row.map(cellNotes => new Set(cellNotes))));
             setGiven(nextState.given);
+            setHighlightedNakedSubset([]);
         }
     };
 
@@ -116,7 +149,6 @@ const App = () => {
                     const newBoard = board.map(r => [...r]);
                     newBoard[rowIndex][colIndex] = 0;
                     setBoard(newBoard);
-                    // 修正箇所: 連続入力モードでのメモ入力時に履歴を保存
                     saveHistory(newBoard, newNotes, given);
                 }
             } else {
@@ -130,6 +162,7 @@ const App = () => {
                     const updatedNotes = updateNotesAfterInput(rowIndex, colIndex, selectedNumber, newNotes);
                     setNotes(updatedNotes);
                     saveHistory(newBoard, updatedNotes, given);
+                    setHighlightedNakedSubset([]);
                 }
             }
         } else {
@@ -156,6 +189,8 @@ const App = () => {
         const { row, col } = cell;
         if (given[row][col]) return;
 
+        setHighlightedNakedSubset([]); // 強調表示をリセット
+
         if (isNoteMode) {
             const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
             const cellNotes = newNotes[row][col];
@@ -168,7 +203,6 @@ const App = () => {
             const newBoard = board.map(r => [...r]);
             newBoard[row][col] = 0;
             setBoard(newBoard);
-            // 修正箇所: 通常モードでのメモ入力時に履歴を保存
             saveHistory(newBoard, newNotes, given);
         } else {
             const newBoard = board.map(r => [...r]);
@@ -196,6 +230,7 @@ const App = () => {
         setNotes(newNotes);
         setHighlightNumber(null);
         saveHistory(newBoard, newNotes, given);
+        setHighlightedNakedSubset([]);
     };
 
     const toggleNoteMode = () => {
@@ -216,6 +251,7 @@ const App = () => {
     };
 
     const handleAutoNoteClick = () => {
+        setHighlightedNakedSubset([]);
         const newNotes = Array(9).fill(null).map(() => Array(9).fill(new Set()));
         for (let row = 0; row < 9; row++) {
             for (let col = 0; col < 9; col++) {
@@ -290,6 +326,7 @@ const App = () => {
         setGiven(newGiven);
         setSelectedCell(null);
         setHighlightNumber(null);
+        setHighlightedNakedSubset([]);
         const newNotes = Array(9).fill(null).map(() => Array(9).fill(new Set()));
         setNotes(newNotes);
         history.current = [{ board: newBoard, notes: newNotes, given: newGiven }];
@@ -297,6 +334,7 @@ const App = () => {
     };
 
     const handleFillSingle = () => {
+        setHighlightedNakedSubset([]);
         let cellsUpdatedInLoop = false;
         let newBoard = board.map(row => [...row]);
         let newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
@@ -440,6 +478,114 @@ const App = () => {
         alert("正解！");
     };
 
+    const handleFindNakedSubsets = () => {
+        setHighlightedNakedSubset([]);
+        const found = solveNakedNTuples();
+        if (found) {
+            setHighlightedNakedSubset(found);
+        } else {
+            alert("N国同盟は見つかりませんでした。");
+        }
+    };
+
+    const solveNakedNTuples = () => {
+        let foundSubset = null;
+
+        // Nが小さい順に探索 (N = 2, 3, 4, 5...)
+        for (let n = 2; n <= 7; n++) {
+            // 行のチェック
+            for (let i = 0; i < 9; i++) {
+                const rowCells = Array.from({ length: 9 }, (_, j) => ({ r: i, c: j }));
+                foundSubset = solveNakedForUnit(rowCells, n);
+                if (foundSubset) return foundSubset;
+            }
+
+            // 列のチェック
+            for (let i = 0; i < 9; i++) {
+                const colCells = Array.from({ length: 9 }, (_, j) => ({ r: j, c: i }));
+                foundSubset = solveNakedForUnit(colCells, n);
+                if (foundSubset) return foundSubset;
+            }
+
+            // ブロックのチェック
+            for (let rBlock = 0; rBlock < 3; rBlock++) {
+                for (let cBlock = 0; cBlock < 3; cBlock++) {
+                    const blockCells = [];
+                    for (let r = rBlock * 3; r < rBlock * 3 + 3; r++) {
+                        for (let c = cBlock * 3; c < cBlock * 3 + 3; c++) {
+                            blockCells.push({ r, c });
+                        }
+                    }
+                    foundSubset = solveNakedForUnit(blockCells, n);
+                    if (foundSubset) return foundSubset;
+                }
+            }
+        }
+
+        return null;
+    };
+
+    const solveNakedForUnit = (unitCells, n) => {
+        // 候補が2つ以上あるセルをフィルタリング
+        const activeCells = unitCells.filter(({ r, c }) => notes[r][c].size >= 2);
+        
+        if (activeCells.length <= n) return null;
+
+        const combinations = getCombinations(activeCells, n);
+        
+        for (const combination of combinations) {
+            let unionMask = 0;
+            for (const cell of combination) {
+                unionMask |= toBitmask(notes[cell.r][cell.c]);
+            }
+            
+            // 1. 和集合のサイズがnと一致するか
+            if (popcount(unionMask) === n) {
+                // 2. N国同盟の数字が他のセルに存在しないかチェック
+                const nakedNumbers = toNumbers(unionMask);
+                let numbersFoundInOtherCells = false;
+                
+                // 結合内のセル以外のすべてのセルを探索
+                for (const unitCell of unitCells) {
+                    // 結合に含まれていないセルか確認
+                    if (!combination.some(c => c.r === unitCell.r && c.c === unitCell.c)) {
+                        // 他のセルにN国同盟の数字が含まれているか
+                        for (const num of nakedNumbers) {
+                            if (notes[unitCell.r][unitCell.c].has(num)) {
+                                numbersFoundInOtherCells = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (numbersFoundInOtherCells) break;
+                }
+                
+                // 他のセルにも候補として存在する場合のみN国同盟と見なす
+                if (numbersFoundInOtherCells) {
+                    return combination;
+                }
+            }
+        }
+        return null;
+    };
+
+    const getCombinations = (array, size) => {
+        const result = [];
+        const f = (prefix, remaining) => {
+            if (prefix.length === size) {
+                result.push(prefix);
+                return;
+            }
+            if (remaining.length === 0) return;
+            
+            for (let i = 0; i < remaining.length; i++) {
+                f(prefix.concat(remaining[i]), remaining.slice(i + 1));
+            }
+        };
+        f([], array);
+        return result;
+    };
+
     return (
         <div className="app">
             <Board
@@ -449,6 +595,7 @@ const App = () => {
                 onCellClick={handleCellClick}
                 notes={notes}
                 highlightNumber={highlightNumber}
+                highlightedNakedSubset={highlightedNakedSubset}
             />
             <div className="controls">
                 <Keypad
@@ -475,6 +622,12 @@ const App = () => {
                         onClick={handleFillSingle}
                     >
                         一択埋め
+                    </button>
+                    <button
+                        className="naked-subset-btn"
+                        onClick={handleFindNakedSubsets}
+                    >
+                        N国同盟
                     </button>
                     <button
                         className="check-btn"

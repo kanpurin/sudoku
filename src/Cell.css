@@ -80,3 +80,9 @@
 .cell.selected {
     background-color: #ffffdd; 
 }
+
+/* N国同盟のメモのハイライト */
+.note-cell.naked-subset-note {
+    background-color: #ffcdd2; /* 薄い赤 */
+    font-weight: bold;
+}
