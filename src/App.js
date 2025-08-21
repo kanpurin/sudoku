@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Board from './Board';
 import Keypad from './Keypad';
 import './App.css';
@@ -50,25 +50,58 @@ const popcount = (mask) => {
     return count;
 };
 
+const loadState = () => {
+    try {
+        const serializedState = localStorage.getItem('sudoku-game-state');
+        if (serializedState === null) {
+            return undefined; // localStorageにデータがない場合
+        }
+        const state = JSON.parse(serializedState);
+        // Setオブジェクトを復元
+        const notes = state.notes.map(row => row.map(cellNotes => new Set(cellNotes)));
+        return {
+            board: state.board,
+            notes: notes,
+            given: state.given
+        };
+    } catch (error) {
+        console.error("Failed to load state from localStorage:", error);
+        return undefined;
+    }
+};
+
+const savedState = loadState();
+
 const App = () => {
-    const [board, setBoard] = useState(initialBoard);
+    const [board, setBoard] = useState(savedState ? savedState.board : initialBoard);
     const [selectedCell, setSelectedCell] = useState(null);
-    const [notes, setNotes] = useState(
-        Array(9).fill(null).map(() => Array(9).fill(new Set()))
-    );
+    const [notes, setNotes] = useState(savedState ? savedState.notes : Array(9).fill(null).map(() => Array(9).fill(new Set())));
     const [isNoteMode, setIsNoteMode] = useState(false);
     const [isContinuousMode, setIsContinuousMode] = useState(false);
     const [selectedNumber, setSelectedNumber] = useState(null);
     const [highlightNumber, setHighlightNumber] = useState(null);
-
     const [inputBoardString, setInputBoardString] = useState(
-        initialBoard.map(row => row.join('')).join('\n')
+        (savedState ? savedState.board : initialBoard).map(row => row.join('')).join('\n')
     );
-    const [given, setGiven] = useState(initialGiven);
+    const [given, setGiven] = useState(savedState ? savedState.given : initialGiven);
     const [highlightedNakedSubset, setHighlightedNakedSubset] = useState([]);
     
-    const history = useRef([{ board: initialBoard, notes: notes, given: initialGiven }]);
+    const history = useRef([{ board: savedState ? savedState.board : initialBoard, notes: savedState ? savedState.notes : notes, given: savedState ? savedState.given : initialGiven }]);
     const historyIndex = useRef(0);
+
+    useEffect(() => {
+    // 状態をlocalStorageに保存する
+    const stateToSave = {
+        board: board,
+        notes: notes.map(row => row.map(cellNotes => Array.from(cellNotes))),
+        given: given
+    };
+    try {
+        localStorage.setItem('sudoku-game-state', JSON.stringify(stateToSave));
+    } catch (error) {
+        console.error("Failed to save state to localStorage:", error);
+    }
+}, [board, notes, given]);
 
     const saveHistory = (newBoard, newNotes, newGiven) => {
         history.current = history.current.slice(0, historyIndex.current + 1);
@@ -330,6 +363,7 @@ const App = () => {
         setNotes(newNotes);
         history.current = [{ board: newBoard, notes: newNotes, given: newGiven }];
         historyIndex.current = 0;
+        saveHistory(newBoard, newNotes, newGiven)
     };
 
     const handleFillSingle = () => {
