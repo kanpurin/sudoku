@@ -84,7 +84,7 @@ const App = () => {
         (savedState ? savedState.board : initialBoard).map(row => row.join('')).join('\n')
     );
     const [given, setGiven] = useState(savedState ? savedState.given : initialGiven);
-    const [highlightedNakedSubset, setHighlightedNakedSubset] = useState([]);
+    const [highlightedHint, setHighlightedHint] = useState([]);
     
     const history = useRef([{ board: savedState ? savedState.board : initialBoard, notes: savedState ? savedState.notes : notes, given: savedState ? savedState.given : initialGiven }]);
     const historyIndex = useRef(0);
@@ -116,7 +116,7 @@ const App = () => {
             setBoard(prevState.board);
             setNotes(prevState.notes.map(row => row.map(cellNotes => new Set(cellNotes))));
             setGiven(prevState.given);
-            setHighlightedNakedSubset([]);
+            setHighlightedHint([]);
         }
     };
 
@@ -127,7 +127,7 @@ const App = () => {
             setBoard(nextState.board);
             setNotes(nextState.notes.map(row => row.map(cellNotes => new Set(cellNotes))));
             setGiven(nextState.given);
-            setHighlightedNakedSubset([]);
+            setHighlightedHint([]);
         }
     };
 
@@ -195,7 +195,7 @@ const App = () => {
                     const updatedNotes = updateNotesAfterInput(rowIndex, colIndex, selectedNumber, newNotes);
                     setNotes(updatedNotes);
                     saveHistory(newBoard, updatedNotes, given);
-                    setHighlightedNakedSubset([]);
+                    setHighlightedHint([]);
                 }
             }
         } else {
@@ -261,7 +261,7 @@ const App = () => {
         setNotes(newNotes);
         setHighlightNumber(null);
         saveHistory(newBoard, newNotes, given);
-        setHighlightedNakedSubset([]);
+        setHighlightedHint([]);
     };
 
     const toggleNoteMode = () => {
@@ -281,7 +281,7 @@ const App = () => {
     };
 
     const handleAutoNoteClick = () => {
-        setHighlightedNakedSubset([]);
+        setHighlightedHint([]);
         const newNotes = Array(9).fill(null).map(() => Array(9).fill(new Set()));
         for (let row = 0; row < 9; row++) {
             for (let col = 0; col < 9; col++) {
@@ -356,7 +356,7 @@ const App = () => {
         setGiven(newGiven);
         setSelectedCell(null);
         setHighlightNumber(null);
-        setHighlightedNakedSubset([]);
+        setHighlightedHint([]);
         const newNotes = Array(9).fill(null).map(() => Array(9).fill(new Set()));
         setNotes(newNotes);
         history.current = [{ board: newBoard, notes: newNotes, given: newGiven }];
@@ -365,7 +365,7 @@ const App = () => {
     };
 
     const handleFillSingle = () => {
-        setHighlightedNakedSubset([]);
+        setHighlightedHint([]);
         let cellsUpdatedInLoop = false;
         let newBoard = board.map(row => [...row]);
         let newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
@@ -510,10 +510,14 @@ const App = () => {
     };
 
     const handleFindNakedSubsets = () => {
-        setHighlightedNakedSubset([]);
+        setHighlightedHint([]);
         const found = solveNakedNTuples();
         if (found) {
-            setHighlightedNakedSubset(found);
+            const nakedNumbers = toNumbers(found.unionMask);
+            const highlightInfo = found.combination.flatMap(cell => 
+                nakedNumbers.map(number => ({ ...cell, number }))
+            );
+            setHighlightedHint(highlightInfo);
         } else {
             alert("N国同盟は見つかりませんでした。");
         }
@@ -570,17 +574,12 @@ const App = () => {
                 unionMask |= toBitmask(notes[cell.r][cell.c]);
             }
             
-            // 1. 和集合のサイズがnと一致するか
             if (popcount(unionMask) === n) {
-                // 2. N国同盟の数字が他のセルに存在しないかチェック
                 const nakedNumbers = toNumbers(unionMask);
                 let numbersFoundInOtherCells = false;
                 
-                // 結合内のセル以外のすべてのセルを探索
                 for (const unitCell of unitCells) {
-                    // 結合に含まれていないセルか確認
                     if (!combination.some(c => c.r === unitCell.r && c.c === unitCell.c)) {
-                        // 他のセルにN国同盟の数字が含まれているか
                         for (const num of nakedNumbers) {
                             if (notes[unitCell.r][unitCell.c].has(num)) {
                                 numbersFoundInOtherCells = true;
@@ -591,9 +590,8 @@ const App = () => {
                     if (numbersFoundInOtherCells) break;
                 }
                 
-                // 他のセルにも候補として存在する場合のみN国同盟と見なす
                 if (numbersFoundInOtherCells) {
-                    return combination;
+                    return { combination, unionMask };
                 }
             }
         }
@@ -626,7 +624,7 @@ const App = () => {
                 onCellClick={handleCellClick}
                 notes={notes}
                 highlightNumber={highlightNumber}
-                highlightedNakedSubset={highlightedNakedSubset}
+                highlightedHint={highlightedHint}
             />
             <div className="controls">
                 <Keypad

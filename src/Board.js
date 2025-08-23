@@ -10,7 +10,7 @@ const Board = ({
     onCellClick, 
     notes, 
     highlightNumber, 
-    highlightedNakedSubset
+    highlightedHint
 }) => {
     return (
         <div className="board">
@@ -18,7 +18,6 @@ const Board = ({
                 <div key={rowIndex} className="row">
                     {row.map((cellValue, colIndex) => {
                         const isSelected = selectedCell && selectedCell.row === rowIndex && selectedCell.col === colIndex;
-                        const isNakedSubsetCell = highlightedNakedSubset && highlightedNakedSubset.some(c => c.r === rowIndex && c.c === colIndex);
 
                         return (
                             <Cell
@@ -30,7 +29,7 @@ const Board = ({
                                 onClick={() => onCellClick(rowIndex, colIndex)}
                                 notes={notes[rowIndex][colIndex]}
                                 highlightNumber={highlightNumber}
-                                isNakedSubsetCell={isNakedSubsetCell}
+                                highlightedHintNumbers={highlightedHint.filter(c => c.r === rowIndex && c.c === colIndex).map(c => c.number)}
                             />
                         );
                     })}

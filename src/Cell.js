@@ -10,7 +10,7 @@ const Cell = ({
     isHighlighted, 
     notes, 
     highlightNumber,
-    isNakedSubsetCell
+    highlightedHintNumbers
 }) => {
     return (
         <div
@@ -24,7 +24,7 @@ const Cell = ({
                         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
                             <div 
                                 key={num} 
-                                className={`note-cell ${notes.has(num) && num === highlightNumber ? 'highlighted-note' : ''} ${isNakedSubsetCell && notes.has(num) ? 'naked-subset-note' : ''}`}
+                                className={`note-cell ${notes.has(num) && num === highlightNumber ? 'highlighted-note' : ''} ${notes.has(num) && highlightedHintNumbers.includes(num) ? 'naked-subset-note' : ''}`}
                             >
                                 {notes.has(num) && (
                                     <span className="note-number">{num}</span>
