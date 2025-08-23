@@ -17,10 +17,8 @@ const initialBoard = [
     [0, 9, 0, 0, 0, 0, 4, 0, 0]
 ];
 
-// 初期ボードの「与えられた数字」の状態を保持
 const initialGiven = initialBoard.map(row => row.map(cell => cell !== 0));
 
-// ヘルパー関数: Setをビットマスクに変換
 const toBitmask = (notesSet) => {
     let mask = 0;
     notesSet.forEach(num => {
@@ -29,7 +27,7 @@ const toBitmask = (notesSet) => {
     return mask;
 };
 
-// ヘルパー関数: ビットマスクから数字のリストを生成
+// 1-indexed
 const toNumbers = (mask) => {
     const numbers = [];
     for (let i = 0; i < 9; i++) {
@@ -40,7 +38,6 @@ const toNumbers = (mask) => {
     return numbers;
 };
 
-// ヘルパー関数: ポップカウント (ビットマスクの1の数を数える)
 const popcount = (mask) => {
     let count = 0;
     while (mask !== 0) {
@@ -54,10 +51,9 @@ const loadState = () => {
     try {
         const serializedState = localStorage.getItem('sudoku-game-state');
         if (serializedState === null) {
-            return undefined; // localStorageにデータがない場合
+            return undefined;
         }
         const state = JSON.parse(serializedState);
-        // Setオブジェクトを復元
         const notes = state.notes.map(row => row.map(cellNotes => new Set(cellNotes)));
         return {
             board: state.board,
@@ -90,7 +86,6 @@ const App = () => {
     const historyIndex = useRef(0);
 
     useEffect(() => {
-    // 状態をlocalStorageに保存する
     const stateToSave = {
         board: board,
         notes: notes.map(row => row.map(cellNotes => Array.from(cellNotes))),
@@ -311,7 +306,6 @@ const App = () => {
             }
         }
         setNotes(newNotes);
-        // 自動メモ時も履歴を保存
         saveHistory(board, newNotes, given);
     };
 
@@ -388,7 +382,6 @@ const App = () => {
 
             // 2. 隠れたシングル (Hidden Single) を探して埋める
             for (let num = 1; num <= 9; num++) {
-                // 行をチェック
                 for (let r = 0; r < 9; r++) {
                     const foundCells = [];
                     for (let c = 0; c < 9; c++) {
@@ -405,7 +398,6 @@ const App = () => {
                     }
                 }
 
-                // 列をチェック
                 for (let c = 0; c < 9; c++) {
                     const foundCells = [];
                     for (let r = 0; r < 9; r++) {
@@ -422,7 +414,6 @@ const App = () => {
                     }
                 }
 
-                // ブロックをチェック
                 for (let br = 0; br < 3; br++) {
                     for (let bc = 0; bc < 3; bc++) {
                         const foundCells = [];
@@ -447,7 +438,6 @@ const App = () => {
             }
         } while (cellsUpdatedInLoop);
 
-        // 変更があった場合のみ状態を更新して履歴を保存
         if (JSON.stringify(newBoard) !== JSON.stringify(board)) {
             setBoard(newBoard);
             setNotes(newNotes);
@@ -561,7 +551,6 @@ const App = () => {
     };
 
     const solveNakedForUnit = (unitCells, n) => {
-        // 候補が2つ以上あるセルをフィルタリング
         const activeCells = unitCells.filter(({ r, c }) => notes[r][c].size >= 2);
         
         if (activeCells.length <= n) return null;
@@ -615,6 +604,107 @@ const App = () => {
         return result;
     };
 
+    const handleFindFish = () => {
+        setHighlightedHint([]);
+        const foundFish = findFish();
+        if (foundFish) {
+            setHighlightedHint(foundFish);
+        }
+        else {
+            alert("N-fishは見つかりませんでした。");
+        }
+    };
+
+    const getCandidateMask = (unitCells, number, axis) => {
+        let mask = 0;
+        for (const cell of unitCells) {
+            if (notes[cell.r][cell.c].has(number)) {
+                if (axis === 'row') {
+                    mask |= (1 << cell.c);
+                } else {
+                    mask |= (1 << cell.r);
+                }
+            }
+        }
+        return mask;
+    };
+
+    const findFish = () => {
+        for (let n = 2; n <= 7; n++) {
+            for (const axis of ['row', 'col']) {
+                for (let num = 1; num <= 9; num++) {
+                    const baseLines = [];
+                    const candidateMasks = {};
+
+                    for (let i = 0; i < 9; i++) {
+                        let unitCells;
+                        if (axis === 'row') {
+                            unitCells = Array.from({ length: 9 }, (_, j) => ({ r: i, c: j }));
+                        } else {
+                            unitCells = Array.from({ length: 9 }, (_, j) => ({ r: j, c: i }));
+                        }
+                        const candidateCount = Array.from(unitCells).filter(({ r, c }) => notes[r][c].has(num)).length;
+
+                        if (candidateCount >= 2 && candidateCount <= n) {
+                            baseLines.push(i);
+                            candidateMasks[i] = getCandidateMask(unitCells, num, axis);
+                        }
+                    }
+
+                    if (baseLines.length < n) continue;
+                    const combinations = getCombinations(baseLines, n);
+
+                    for (const combination of combinations) {
+                        let unionMask = 0;
+                        for (const lineIndex of combination) {
+                            unionMask |= candidateMasks[lineIndex];
+                        }
+
+                        if (popcount(unionMask) !== n) continue;
+
+                        let notesFoundInOtherCells = false;
+                        for (let i = 0; i < 9; i++) {
+                            if (!combination.includes(i)) {
+                                for (let j = 0; j < 9; j++) {
+                                    if ((unionMask >> j) & 1) {
+                                        const r = (axis === 'row') ? i : j;
+                                        const c = (axis === 'row') ? j : i;
+                                        if (notes[r][c].has(num)) {
+                                            notesFoundInOtherCells = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            if (notesFoundInOtherCells) break;
+                        }
+
+                        if (!notesFoundInOtherCells) continue;
+                        const baseLines = combination;
+                        const coverLines = toNumbers(unionMask).map(num => num - 1);
+
+                        const highlightInfo = [];
+                        if (axis === 'row') {
+                            baseLines.forEach(r => {
+                                coverLines.forEach(c => {
+                                    highlightInfo.push({ r, c, number: num });
+                                });
+                            });
+                        } else {
+                            baseLines.forEach(c => {
+                                coverLines.forEach(r => {
+                                    highlightInfo.push({ r, c, number: num });
+                                });
+                            });
+                        }
+                        return highlightInfo;
+                    }
+                }
+            }
+        }
+        return null;
+    };
+
     return (
         <div className="app">
             <Board
@@ -639,7 +729,7 @@ const App = () => {
                     historyIndex={historyIndex.current}
                     historyLength={history.current.length}
                 />
-                <div className="button-group">
+                <div className="support-features">
                     <button
                         className="auto-note-btn"
                         onClick={handleAutoNoteClick}
@@ -653,16 +743,24 @@ const App = () => {
                         一択埋め
                     </button>
                     <button
+                        className="check-btn"
+                        onClick={checkBoard}
+                    >
+                        正誤判定
+                    </button>
+                </div>
+                <div className="hint-features">
+                    <button
                         className="naked-subset-btn"
                         onClick={handleFindNakedSubsets}
                     >
                         N国同盟
                     </button>
                     <button
-                        className="check-btn"
-                        onClick={checkBoard}
+                        className="naked-subset-btn"
+                        onClick={handleFindFish}
                     >
-                        正誤判定
+                        N-fish
                     </button>
                 </div>
             </div>
