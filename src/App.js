@@ -222,8 +222,6 @@ const App = () => {
         const { row, col } = cell;
         if (given[row][col]) return;
 
-        setHighlightedNakedSubset([]); // 強調表示をリセット
-
         if (isNoteMode) {
             const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
             const cellNotes = newNotes[row][col];
