@@ -76,9 +76,18 @@ const App = () => {
     const [isContinuousMode, setIsContinuousMode] = useState(false);
     const [selectedNumber, setSelectedNumber] = useState(null);
     const [highlightNumber, setHighlightNumber] = useState(null);
-    const [inputBoardString, setInputBoardString] = useState(
-        (savedState ? savedState.board : initialBoard).map(row => row.join('')).join('\n')
-    );
+    const [inputBoardString, setInputBoardString] = useState(() => {
+        const boardToDisplay = savedState ? savedState.board : initialBoard;
+        const givenStatus = savedState ? savedState.given : initialGiven;
+
+        const filteredBoard = boardToDisplay.map((row, r) => 
+            row.map((cellValue, c) => 
+                givenStatus[r][c] ? cellValue : 0
+            ).join('')
+        ).join('\n');
+        
+        return filteredBoard;
+    });
     const [given, setGiven] = useState(savedState ? savedState.given : initialGiven);
     const [highlightedHint, setHighlightedHint] = useState([]);
     
