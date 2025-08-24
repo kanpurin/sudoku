@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Board from './Board';
 import Keypad from './Keypad';
+import ImageToSudoku from './ImageToSudoku';
 import './App.css';
 
 // 初期ナンプレ問題
@@ -786,6 +787,7 @@ const App = () => {
                     <button onClick={handleClearBoardInput}>削除</button>
                 </div>
             </div>
+            <ImageToSudoku onConvert={setInputBoardString} />
         </div>
     );
 };

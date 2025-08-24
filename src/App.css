@@ -57,8 +57,7 @@
 
 .input-section textarea {
     width: 100%;
-    max-width: 450px;
-    height: 120px;
+    height: 150px;
     font-size: 16px;
     padding: 5px;
     border: 1px solid #ccc;
