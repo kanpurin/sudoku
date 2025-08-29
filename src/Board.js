@@ -9,6 +9,7 @@ const Board = ({
     selectedCell, 
     onCellClick, 
     notes, 
+    colors,
     highlightNumber, 
     highlightedHint
 }) => {
@@ -28,6 +29,7 @@ const Board = ({
                                 isHighlighted={cellValue === highlightNumber}
                                 onClick={() => onCellClick(rowIndex, colIndex)}
                                 notes={notes[rowIndex][colIndex]}
+                                colors={colors[rowIndex][colIndex]}
                                 highlightNumber={highlightNumber}
                                 highlightedHintNumbers={highlightedHint.filter(c => c.r === rowIndex && c.c === colIndex).map(c => c.number)}
                             />

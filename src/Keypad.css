@@ -46,7 +46,9 @@
 .key.clear-key,
 .key.note-key,
 .key.redo-key,
-.key.undo-key {
+.key.undo-key,
+.key.color-key,
+.key.color-clear-key {
     font-size: 1em;
     padding: 10px 0;
     height: auto;
@@ -55,6 +57,26 @@
 .key.note-key.active {
     background-color: #88ff88;
     border-color: #55aa55;
+    color: initial;
+}
+
+.key.color-key.color1 {
+    background-color: #03ff03;
+    color: initial;
+}
+
+.key.color-key.color2 {
+    background-color: #ff9100;
+    color: initial;
+}
+
+.key.color-key.color3 {
+    background-color: #5900ff;
+    color: initial;
+}
+
+.key.color-key.color4 {
+    background-color: #f900d8;
     color: initial;
 }
 

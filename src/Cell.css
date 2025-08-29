@@ -86,3 +86,28 @@
     background-color: #ffcdd2; /* 薄い赤 */
     font-weight: bold;
 }
+
+
+.cell.color1,
+.note-cell.color1 {
+    background-color: #03ff03;
+    color: initial;
+}
+
+.cell.color2,
+.note-cell.color2 {
+    background-color: #ff9100;
+    color: initial;
+}
+
+.cell.color3,
+.note-cell.color3 {
+    background-color: #5900ff;
+    color: initial;
+}
+
+.cell.color4,
+.note-cell.color4 {
+    background-color: #f900d8;
+    color: initial;
+}

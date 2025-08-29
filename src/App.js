@@ -73,7 +73,9 @@ const App = () => {
     const [board, setBoard] = useState(savedState ? savedState.board : initialBoard);
     const [selectedCell, setSelectedCell] = useState(null);
     const [notes, setNotes] = useState(savedState ? savedState.notes : Array(9).fill(null).map(() => Array(9).fill(new Set())));
+    const [colors, setColors] = useState(Array(9).fill(null).map(() => Array(9).fill(null).map(() => Array(10).fill(0)))); // 各セルのメモ1~9の色, 0はセル全体の色
     const [isNoteMode, setIsNoteMode] = useState(false);
+    const [colorNumber, setColorNumber] = useState(0);
     const [isContinuousMode, setIsContinuousMode] = useState(false);
     const [selectedNumber, setSelectedNumber] = useState(null);
     const [highlightNumber, setHighlightNumber] = useState(null);
@@ -96,23 +98,30 @@ const App = () => {
     const historyIndex = useRef(0);
 
     useEffect(() => {
-    const stateToSave = {
-        board: board,
-        notes: notes.map(row => row.map(cellNotes => Array.from(cellNotes))),
-        given: given
-    };
-    try {
-        localStorage.setItem('sudoku-game-state', JSON.stringify(stateToSave));
-    } catch (error) {
-        console.error("Failed to save state to localStorage:", error);
-    }
-}, [board, notes, given]);
+        const stateToSave = {
+            board: board,
+            notes: notes.map(row => row.map(cellNotes => Array.from(cellNotes))),
+            given: given
+        };
+        try {
+            localStorage.setItem('sudoku-game-state', JSON.stringify(stateToSave));
+        } catch (error) {
+            console.error("Failed to save state to localStorage:", error);
+        }
+    }, [board, notes, given]);
 
     const saveHistory = (newBoard, newNotes, newGiven) => {
         history.current = history.current.slice(0, historyIndex.current + 1);
         history.current.push({ board: newBoard, notes: newNotes, given: newGiven });
         historyIndex.current = history.current.length - 1;
     };
+
+    // numberが0のときはセル全体の色を変更, 1~9のときはメモの色を変更
+    const updateCellColor = (rowIndex, colIndex, number, colorNum) => {
+        const newColors = colors.map(row => row.map(cellColors => [...cellColors]));
+        newColors[rowIndex][colIndex][number] = colorNum;
+        setColors(newColors);
+    }
 
     const handleUndoClick = () => {
         if (historyIndex.current > 0) {
@@ -161,10 +170,14 @@ const App = () => {
 
     const handleCellClick = (rowIndex, colIndex) => {
         const clickedNumber = board[rowIndex][colIndex];
+        // 既に数字が埋まっているセル
         if (clickedNumber !== 0) {
-            setHighlightNumber(clickedNumber);
-        } else {
-            setHighlightNumber(null);
+            if (colorNumber !== 0) {
+                updateCellColor(rowIndex, colIndex, 0, colorNumber);
+            }
+            else {
+                setHighlightNumber(clickedNumber);
+            }
         }
 
         if (given[rowIndex][colIndex]) {
@@ -172,8 +185,18 @@ const App = () => {
             return;
         }
 
+        // 連続入力モードかつ数字が選択されている場合、その数字を入力またはメモ
         if (isContinuousMode && selectedNumber) {
             if (isNoteMode) {
+                if (colorNumber !== 0) {
+                    if (colors[rowIndex][colIndex][selectedNumber] === colorNumber) {
+                        updateCellColor(rowIndex, colIndex, selectedNumber, 0);
+                    }
+                    else {
+                        updateCellColor(rowIndex, colIndex, selectedNumber, colorNumber);
+                    }
+                    return;
+                }
                 const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
                 const cellNotes = newNotes[rowIndex][colIndex];
                 if (selectedNumber) {
@@ -204,6 +227,14 @@ const App = () => {
                 }
             }
         } else {
+            if (!isNoteMode) {
+                if (colors[rowIndex][colIndex][0] === colorNumber) {
+                    updateCellColor(rowIndex, colIndex, 0, 0);
+                }
+                else {
+                    updateCellColor(rowIndex, colIndex, 0, colorNumber);
+                }
+            }
             setSelectedCell({ row: rowIndex, col: colIndex });
         }
     };
@@ -228,6 +259,15 @@ const App = () => {
         if (given[row][col]) return;
 
         if (isNoteMode) {
+            if (colorNumber !== 0) {
+                if (colors[row][col][number] === colorNumber) {
+                    updateCellColor(row, col, number, 0);
+                }
+                else {
+                    updateCellColor(row, col, number, colorNumber);
+                }
+                return;
+            }
             const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
             const cellNotes = newNotes[row][col];
             if (cellNotes.has(number)) {
@@ -715,6 +755,16 @@ const App = () => {
         return null;
     };
 
+    const handleColorClick = () => {
+        setColorNumber((colorNumber + 1) % 5);
+    };
+
+    const handleColorClearClick = () => {
+        setHighlightNumber(null);
+        setColors(Array(9).fill(null).map(() => Array(9).fill(null).map(() => Array(10).fill(0))));
+        setColorNumber(0);
+    }
+
     return (
         <div className="app">
             <Board
@@ -723,6 +773,7 @@ const App = () => {
                 selectedCell={selectedCell}
                 onCellClick={handleCellClick}
                 notes={notes}
+                colors={colors}
                 highlightNumber={highlightNumber}
                 highlightedHint={highlightedHint}
             />
@@ -732,10 +783,13 @@ const App = () => {
                     onClearClick={handleClearClick}
                     onLongPressToggle={handleLongPressToggle}
                     isNoteMode={isNoteMode}
+                    colorNumber={colorNumber}
                     selectedNumber={selectedNumber}
                     toggleNoteMode={toggleNoteMode}
                     handleUndoClick={handleUndoClick}
                     handleRedoClick={handleRedoClick}
+                    handleColorClick={handleColorClick}
+                    handleColorClearClick={handleColorClearClick}
                     historyIndex={historyIndex.current}
                     historyLength={history.current.length}
                 />

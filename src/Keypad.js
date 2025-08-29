@@ -7,10 +7,13 @@ const Keypad = ({
     onClearClick,
     onLongPressToggle,
     isNoteMode,
+    colorNumber,
     selectedNumber,
     toggleNoteMode,
     handleUndoClick,
     handleRedoClick,
+    handleColorClick,
+    handleColorClearClick,
     historyIndex,
     historyLength
 }) => {
@@ -89,6 +92,15 @@ const Keypad = ({
                 </div>
                 <div className="key clear-key" onClick={onClearClick}>
                     クリア
+                </div>
+                <div 
+                    className={`key color-key ${'color' + colorNumber}`}
+                    onClick={handleColorClick}
+                >
+                    色付け
+                </div>
+                <div className="key color-clear-key" onClick={handleColorClearClick}>
+                    全色消し
                 </div>
             </div>
         </div>
