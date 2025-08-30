@@ -761,6 +761,7 @@ const App = () => {
 
     const handleColorClearClick = () => {
         setHighlightNumber(null);
+        setHighlightedHint([]);
         setColors(Array(9).fill(null).map(() => Array(9).fill(null).map(() => Array(10).fill(0))));
         setColorNumber(0);
     }
