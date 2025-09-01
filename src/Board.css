@@ -1,8 +1,14 @@
 /* src/Board.css */
+.board-container {
+    position: relative;
+    width: 376px; /* 40px*9 + 1px*8 + 2px*2 + 2px*2 = 376px */
+    height: 376px;
+}
+
 .board {
     display: grid;
     grid-template-columns: repeat(9, 1fr);
-    grid-template-rows: repeat(9, 1fr); /* 行方向も1frに */
+    grid-template-rows: repeat(9, 1fr);
     gap: 1px;
     border: 2px solid #333;
     background-color: #333;
@@ -10,31 +16,6 @@
 
 .row {
     display: contents;
-}
-
-.cell {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 1.5em;
-    font-weight: bold;
-    border: 1px solid #ccc;
-    box-sizing: border-box;
-    background-color: white; /* セルの背景を白色に設定 */
-    cursor: pointer;
-}
-
-.cell.given {
-    background-color: #ddd;
-    cursor: default;
-}
-
-.cell.selected {
-    background-color: #ffffdd; /* 選択されたセルの背景色 */
-}
-
-.cell.error {
-    background-color: #ffcccc;
 }
 
 /* 3x3のブロックの境界線を太くする */
@@ -60,4 +41,14 @@
 .board > .row:nth-child(3n) > .cell:nth-child(3n) {
     border-bottom: 2px solid #333;
     border-right: 2px solid #333;
+}
+
+/* 線の描画用オーバーレイ */
+.path-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
 }

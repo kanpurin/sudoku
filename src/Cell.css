@@ -2,13 +2,29 @@
 .cell {
     width: 40px;
     height: 40px;
-    border: 1px solid #ccc;
-    box-sizing: border-box;
     display: flex;
     justify-content: center;
     align-items: center;
+    font-size: 1.5em;
+    font-weight: bold;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+    background-color: white; /* セルの背景を白色に設定 */
+    cursor: pointer;
     position: relative;
-    background-color: white;
+}
+
+.cell.given {
+    background-color: #ddd;
+    cursor: default;
+}
+
+.cell.selected {
+    background-color: #ffffdd; /* 選択されたセルの背景色 */
+}
+
+.cell.error {
+    background-color: #ffcccc;
 }
 
 /* 中央20px四方の透明クリックゾーン */

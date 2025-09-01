@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Board from './Board';
 import Keypad from './Keypad';
 import ImageToSudoku from './ImageToSudoku';
+import solveAdvanced from './utils/solveAdvanced';
 import './App.css';
 
 // 初期ナンプレ問題
@@ -93,6 +94,7 @@ const App = () => {
     });
     const [given, setGiven] = useState(savedState ? savedState.given : initialGiven);
     const [highlightedHint, setHighlightedHint] = useState([]);
+    const [pathHighlight, setPathHighlight] = useState([]);
     
     const history = useRef([{ board: savedState ? savedState.board : initialBoard, notes: savedState ? savedState.notes : notes, given: savedState ? savedState.given : initialGiven }]);
     const historyIndex = useRef(0);
@@ -551,6 +553,7 @@ const App = () => {
 
     const handleFindNakedSubsets = () => {
         setHighlightedHint([]);
+        setPathHighlight([]);
         const found = solveNakedNTuples();
         if (found) {
             const nakedNumbers = toNumbers(found.unionMask);
@@ -656,6 +659,7 @@ const App = () => {
 
     const handleFindFish = () => {
         setHighlightedHint([]);
+        setPathHighlight([]);
         const foundFish = findFish();
         if (foundFish) {
             setHighlightedHint(foundFish);
@@ -756,15 +760,44 @@ const App = () => {
     };
 
     const handleColorClick = () => {
+        setPathHighlight([]);
         setColorNumber((colorNumber + 1) % 5);
     };
 
     const handleColorClearClick = () => {
         setHighlightNumber(null);
+        setPathHighlight([]);
         setHighlightedHint([]);
         setColors(Array(9).fill(null).map(() => Array(9).fill(null).map(() => Array(10).fill(0))));
         setColorNumber(0);
-    }
+    };
+
+    const handleFindChain = () => {
+        setHighlightedHint([]);
+        const memo = Array(9).fill(0).map(() =>
+            Array(9).fill(0).map(() =>
+                Array(9).fill(false)
+            )
+        );
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                notes[r][c].forEach(num => {
+                    memo[r][c][num - 1] = true;
+                });
+            }
+        }
+        const path = solveAdvanced(memo);
+        if (path.length === 0) {
+            alert("Chainは見つかりませんでした。");
+            return;
+        }
+        setPathHighlight(path);
+        const highlightInfo = path.map(({ start, end }) => [
+            { r: start.r, c: start.c, number: start.num + 1 },
+            { r: end.r, c: end.c, number: end.num + 1 }
+        ]).flat();
+        setHighlightedHint(highlightInfo);
+    };
 
     return (
         <div className="app">
@@ -777,6 +810,7 @@ const App = () => {
                 colors={colors}
                 highlightNumber={highlightNumber}
                 highlightedHint={highlightedHint}
+                pathHighlight={pathHighlight}
             />
             <div className="controls">
                 <Keypad
@@ -822,11 +856,18 @@ const App = () => {
                         N国同盟
                     </button>
                     <button
-                        className="naked-subset-btn"
+                        className="n-fish-btn"
                         onClick={handleFindFish}
                     >
                         N-fish
                     </button>
+                    <button
+                        className="chain-btn"
+                        onClick={handleFindChain}
+                    >
+                        Chain
+                    </button>
+                    
                 </div>
             </div>
             <div className="input-section">
