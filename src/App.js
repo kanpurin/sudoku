@@ -201,32 +201,33 @@ const App = () => {
                 }
                 const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
                 const cellNotes = newNotes[rowIndex][colIndex];
-                if (selectedNumber) {
-                    if (cellNotes.has(selectedNumber)) {
-                        cellNotes.delete(selectedNumber);
-                    } else {
-                        cellNotes.add(selectedNumber);
-                    }
-                    setNotes(newNotes);
-                    setHighlightNumber(selectedNumber);
-                    const newBoard = board.map(r => [...r]);
-                    newBoard[rowIndex][colIndex] = 0;
-                    setBoard(newBoard);
-                    saveHistory(newBoard, newNotes, given);
+                if (cellNotes.has(selectedNumber)) {
+                    cellNotes.delete(selectedNumber);
+                } else {
+                    cellNotes.add(selectedNumber);
                 }
+                setNotes(newNotes);
+                setHighlightNumber(selectedNumber);
+                const newBoard = board.map(r => [...r]);
+                newBoard[rowIndex][colIndex] = 0;
+                setBoard(newBoard);
+                saveHistory(newBoard, newNotes, given);
             } else {
-                if (selectedNumber) {
-                    const newBoard = board.map(r => [...r]);
-                    newBoard[rowIndex][colIndex] = selectedNumber;
-                    setBoard(newBoard);
-                    setHighlightNumber(selectedNumber);
-                    const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
-                    newNotes[rowIndex][colIndex].clear();
-                    const updatedNotes = updateNotesAfterInput(rowIndex, colIndex, selectedNumber, newNotes);
-                    setNotes(updatedNotes);
-                    saveHistory(newBoard, updatedNotes, given);
-                    setHighlightedHint([]);
+                const newBoard = board.map(r => [...r]);
+                if (clickedNumber === selectedNumber) {
+                    newBoard[rowIndex][colIndex] = 0;    
                 }
+                else {
+                    newBoard[rowIndex][colIndex] = selectedNumber;
+                }
+                setBoard(newBoard);
+                setHighlightNumber(selectedNumber);
+                const newNotes = notes.map(rowNotes => rowNotes.map(cellNotes => new Set(cellNotes)));
+                newNotes[rowIndex][colIndex].clear();
+                const updatedNotes = updateNotesAfterInput(rowIndex, colIndex, selectedNumber, newNotes);
+                setNotes(updatedNotes);
+                saveHistory(newBoard, updatedNotes, given);
+                setHighlightedHint([]);
             }
         } else {
             if (!isNoteMode) {
