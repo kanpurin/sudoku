@@ -494,9 +494,6 @@ const App = () => {
             setBoard(newBoard);
             setNotes(newNotes);
             saveHistory(newBoard, newNotes, given);
-            setIsContinuousMode(false);
-            setSelectedNumber(null);
-            setHighlightNumber(null);
         }
     };
 
