@@ -318,6 +318,7 @@ const App = () => {
 
     const handleLongPressToggle = (number) => {
         if (isContinuousMode && selectedNumber === number) {
+            setHighlightNumber(null);
             setIsContinuousMode(false);
             setSelectedNumber(null);
         } else {
@@ -763,7 +764,6 @@ const App = () => {
     };
 
     const handleColorClearClick = () => {
-        setHighlightNumber(null);
         setPathHighlight([]);
         setHighlightedHint([]);
         setColors(Array(9).fill(null).map(() => Array(9).fill(null).map(() => Array(10).fill(0))));
