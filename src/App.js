@@ -373,7 +373,7 @@ const App = () => {
         // 入力文字列から改行やスペースを削除
         const cleanedString = inputBoardString.replace(/\s/g, '');
 
-        if (cleanedString.length !== 81) {
+        if (cleanedString.length !== 0 && cleanedString.length !== 81) {
             alert(`入力は81文字の数字でなければなりません。現在の文字数: ${cleanedString.length}`);
             return;
         }
@@ -385,7 +385,7 @@ const App = () => {
             const row = [];
             const givenRow = [];
             for (let j = 0; j < 9; j++) {
-                const char = cleanedString[index];
+                const char = cleanedString.length === 0 ? '0' : cleanedString[index];
                 const num = parseInt(char, 10);
                 if (isNaN(num) || num < 0 || num > 9) {
                     alert("入力が無効です。0-9の数字のみを使用してください。");
