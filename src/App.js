@@ -405,6 +405,7 @@ const App = () => {
         setSelectedCell(null);
         setHighlightNumber(null);
         setHighlightedHint([]);
+        setColors(Array(9).fill(null).map(() => Array(9).fill(null).map(() => Array(10).fill(0))));
         const newNotes = Array(9).fill(null).map(() => Array(9).fill(new Set()));
         setNotes(newNotes);
         history.current = [{ board: newBoard, notes: newNotes, given: newGiven }];
