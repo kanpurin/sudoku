@@ -1,7 +1,9 @@
 /* src/Cell.css */
 .cell {
-    width: 40px;
-    height: 40px;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -12,6 +14,8 @@
     background-color: white; /* セルの背景を白色に設定 */
     cursor: pointer;
     position: relative;
+    touch-action: manipulation;
+    user-select: none;
 }
 
 .cell.given {
@@ -30,11 +34,7 @@
 /* 中央20px四方の透明クリックゾーン */
 .click-area {
     position: absolute;
-    width: 30px;
-    height: 30px;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    inset: 0;
     cursor: pointer;
 }
 

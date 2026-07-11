@@ -1,8 +1,9 @@
 /* src/Board.css */
 .board-container {
     position: relative;
-    width: 376px; /* 40px*9 + 1px*8 + 2px*2 + 2px*2 = 376px */
-    height: 376px;
+    width: min(376px, calc(100vw - 16px));
+    aspect-ratio: 1 / 1;
+    touch-action: manipulation;
 }
 
 .board {
@@ -12,6 +13,9 @@
     gap: 1px;
     border: 2px solid #333;
     background-color: #333;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
 }
 
 .row {
