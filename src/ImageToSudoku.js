@@ -116,6 +116,60 @@ def find_grid_contour(thresh, image_area):
 
     return None
 
+def contour_area_ratio(contour, image_area):
+    if contour is None:
+        return 0
+    return cv.contourArea(contour.astype("float32")) / image_area
+
+def contour_as_axis_aligned_rect(contour):
+    x, y, w, h = cv.boundingRect(contour.astype("float32"))
+    return np.array(
+        [[[x, y]], [[x + w, y]], [[x + w, y + h]], [[x, y + h]]],
+        dtype="float32"
+    )
+
+def find_grid_from_lines(gray):
+    blurred = cv.GaussianBlur(gray, (3, 3), 0)
+    thresh = cv.adaptiveThreshold(
+        blurred,
+        255,
+        cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv.THRESH_BINARY_INV,
+        21,
+        4
+    )
+
+    min_dim = min(gray.shape[:2])
+    line_length = max(18, min_dim // 4)
+    horizontal_kernel = cv.getStructuringElement(cv.MORPH_RECT, (line_length, 1))
+    vertical_kernel = cv.getStructuringElement(cv.MORPH_RECT, (1, line_length))
+    horizontal = cv.morphologyEx(thresh, cv.MORPH_OPEN, horizontal_kernel)
+    vertical = cv.morphologyEx(thresh, cv.MORPH_OPEN, vertical_kernel)
+    grid_mask = cv.bitwise_or(horizontal, vertical)
+
+    points = cv.findNonZero(grid_mask)
+    if points is None:
+        return None
+
+    x, y, w, h = cv.boundingRect(points)
+    if w < min_dim * 0.55 or h < min_dim * 0.55:
+        return None
+
+    ratio = w / max(h, 1)
+    if ratio < 0.75 or ratio > 1.25:
+        return None
+
+    pad = max(2, int(min_dim * 0.01))
+    x1 = max(0, x - pad)
+    y1 = max(0, y - pad)
+    x2 = min(gray.shape[1] - 1, x + w + pad)
+    y2 = min(gray.shape[0] - 1, y + h + pad)
+
+    return np.array(
+        [[[x1, y1]], [[x2, y1]], [[x2, y2]], [[x1, y2]]],
+        dtype="float32"
+    )
+
 def warp_grid(img):
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     gray = cv.equalizeHist(gray)
@@ -130,9 +184,16 @@ def warp_grid(img):
     )
     kernel = cv.getStructuringElement(cv.MORPH_RECT, (3, 3))
     closed = cv.morphologyEx(thresh, cv.MORPH_CLOSE, kernel, iterations=1)
-    contour = find_grid_contour(closed, img.shape[0] * img.shape[1])
+    image_area = img.shape[0] * img.shape[1]
+    contour = find_grid_contour(closed, image_area)
+    if contour is not None and contour_area_ratio(contour, image_area) > 0.95:
+        line_contour = find_grid_from_lines(gray)
+        contour = line_contour if line_contour is not None else contour_as_axis_aligned_rect(contour)
+
     if contour is None:
-        return None
+        contour = find_grid_from_lines(gray)
+        if contour is None:
+            return None
 
     rect = order_points(contour)
     dst = np.array(
