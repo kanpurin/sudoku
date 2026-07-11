@@ -74,32 +74,14 @@ const ImageToSudoku = ({ onConvert }) => {
 import cv2 as cv
 import numpy as np
 import base64
+import json
 
-def process_sudoku_image(img_bytes):
-    nparr = np.frombuffer(img_bytes, np.uint8)
-    img = cv.imdecode(nparr, cv.IMREAD_COLOR)
+GRID_SIZE = 450
+CELL_SIZE = GRID_SIZE // 9
+OCR_SIZE = 96
 
-    if img is None: return []
-
-    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    blurred = cv.GaussianBlur(gray, (5, 5), 0)
-    thresh = cv.adaptiveThreshold(blurred, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 11, 2)
-    contours, _ = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-    
-    max_area = 0
-    sudoku_contour = None
-    for contour in contours:
-        area = cv.contourArea(contour)
-        if area > 2000:
-            peri = cv.arcLength(contour, True)
-            approx = cv.approxPolyDP(contour, 0.02 * peri, True)
-            if len(approx) == 4 and area > max_area:
-                max_area = area
-                sudoku_contour = approx
-    
-    if sudoku_contour is None: return []
-
-    pts = sudoku_contour.reshape(4, 2)
+def order_points(points):
+    pts = points.reshape(4, 2).astype("float32")
     rect = np.zeros((4, 2), dtype="float32")
     s = pts.sum(axis=1)
     rect[0] = pts[np.argmin(s)]
@@ -107,67 +89,154 @@ def process_sudoku_image(img_bytes):
     diff = np.diff(pts, axis=1)
     rect[1] = pts[np.argmin(diff)]
     rect[3] = pts[np.argmax(diff)]
-    
-    (tl, tr, br, bl) = rect
-    widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
-    widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
-    maxWidth = max(int(widthA), int(widthB))
-    heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
-    heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
-    maxHeight = max(int(heightA), int(heightB))
-    
-    dst = np.array([[0, 0], [maxWidth - 1, 0], [maxWidth - 1, maxHeight - 1], [0, maxHeight - 1]], dtype="float32")
-    M = cv.getPerspectiveTransform(rect, dst)
-    warped_sudoku_grid = cv.warpPerspective(img, M, (maxWidth, maxHeight))
-    
-    tl_orig = rect[0].astype(int)
-    tr_orig = rect[1].astype(int)
-    bl_orig = rect[3].astype(int)
-    
-    width_orig = np.sqrt(((tr_orig[0] - tl_orig[0]) ** 2) + ((tr_orig[1] - tl_orig[1]) ** 2))
-    height_orig = np.sqrt(((bl_orig[0] - tl_orig[0]) ** 2) + ((bl_orig[1] - tl_orig[1]) ** 2))
+    return rect
 
-    cell_w_orig = width_orig / 9
-    cell_h_orig = height_orig / 9
+def find_grid_contour(thresh, image_area):
+    contours, _ = cv.findContours(thresh, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    candidates = []
+
+    for contour in contours:
+        area = cv.contourArea(contour)
+        if area < image_area * 0.08:
+            continue
+
+        peri = cv.arcLength(contour, True)
+        approx = cv.approxPolyDP(contour, 0.02 * peri, True)
+        if len(approx) == 4 and cv.isContourConvex(approx):
+            candidates.append((area, approx))
+
+    if candidates:
+        return max(candidates, key=lambda item: item[0])[1]
+
+    if contours:
+        largest = max(contours, key=cv.contourArea)
+        if cv.contourArea(largest) >= image_area * 0.08:
+            rect = cv.minAreaRect(largest)
+            return cv.boxPoints(rect).astype("float32").reshape(4, 1, 2)
+
+    return None
+
+def warp_grid(img):
+    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    gray = cv.equalizeHist(gray)
+    blurred = cv.GaussianBlur(gray, (5, 5), 0)
+    thresh = cv.adaptiveThreshold(
+        blurred,
+        255,
+        cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv.THRESH_BINARY_INV,
+        15,
+        2
+    )
+    kernel = cv.getStructuringElement(cv.MORPH_RECT, (3, 3))
+    closed = cv.morphologyEx(thresh, cv.MORPH_CLOSE, kernel, iterations=1)
+    contour = find_grid_contour(closed, img.shape[0] * img.shape[1])
+    if contour is None:
+        return None
+
+    rect = order_points(contour)
+    dst = np.array(
+        [[0, 0], [GRID_SIZE - 1, 0], [GRID_SIZE - 1, GRID_SIZE - 1], [0, GRID_SIZE - 1]],
+        dtype="float32"
+    )
+    matrix = cv.getPerspectiveTransform(rect, dst)
+    return cv.warpPerspective(gray, matrix, (GRID_SIZE, GRID_SIZE))
+
+def remove_grid_lines(binary):
+    horizontal_kernel = cv.getStructuringElement(cv.MORPH_RECT, (18, 1))
+    vertical_kernel = cv.getStructuringElement(cv.MORPH_RECT, (1, 18))
+    horizontal = cv.morphologyEx(binary, cv.MORPH_OPEN, horizontal_kernel)
+    vertical = cv.morphologyEx(binary, cv.MORPH_OPEN, vertical_kernel)
+    grid = cv.bitwise_or(horizontal, vertical)
+    return cv.bitwise_and(binary, cv.bitwise_not(grid))
+
+def prepare_cell_image(cell):
+    margin = int(CELL_SIZE * 0.16)
+    inner = cell[margin:CELL_SIZE - margin, margin:CELL_SIZE - margin]
+    inner = cv.GaussianBlur(inner, (3, 3), 0)
+    binary = cv.adaptiveThreshold(
+        inner,
+        255,
+        cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv.THRESH_BINARY_INV,
+        21,
+        8
+    )
+    binary = remove_grid_lines(binary)
+
+    num_labels, labels, stats, _ = cv.connectedComponentsWithStats(binary, 8)
+    digit_mask = np.zeros(binary.shape, dtype=np.uint8)
+    components = []
+    area_limit = binary.shape[0] * binary.shape[1]
+
+    for label in range(1, num_labels):
+        x, y, w, h, area = stats[label]
+        if area < 12 or area > area_limit * 0.55:
+            continue
+        if h < binary.shape[0] * 0.18 or w < binary.shape[1] * 0.06:
+            continue
+        if x <= 1 or y <= 1 or x + w >= binary.shape[1] - 1 or y + h >= binary.shape[0] - 1:
+            continue
+        components.append((x, y, w, h, area, label))
+
+    if not components:
+        return None
+
+    for _, _, _, _, _, label in components:
+        digit_mask[labels == label] = 255
+
+    ys, xs = np.where(digit_mask > 0)
+    if len(xs) == 0:
+        return None
+
+    x1, x2 = xs.min(), xs.max()
+    y1, y2 = ys.min(), ys.max()
+    digit = digit_mask[y1:y2 + 1, x1:x2 + 1]
+
+    h, w = digit.shape
+    scale = min(68 / max(w, 1), 76 / max(h, 1))
+    resized = cv.resize(digit, (max(1, int(w * scale)), max(1, int(h * scale))), interpolation=cv.INTER_AREA)
+
+    canvas = np.full((OCR_SIZE, OCR_SIZE), 255, dtype=np.uint8)
+    digit_black = 255 - resized
+    y = (OCR_SIZE - digit_black.shape[0]) // 2
+    x = (OCR_SIZE - digit_black.shape[1]) // 2
+    canvas[y:y + digit_black.shape[0], x:x + digit_black.shape[1]] = digit_black
+    return canvas
+
+def process_sudoku_image(img_bytes):
+    nparr = np.frombuffer(img_bytes, np.uint8)
+    img = cv.imdecode(nparr, cv.IMREAD_COLOR)
+    if img is None:
+        return "[]"
+
+    warped = warp_grid(img)
+    if warped is None:
+        return "[]"
 
     cell_images = []
     for row in range(9):
         for col in range(9):
-            center_x_orig = int(tl_orig[0] + col * cell_w_orig + cell_w_orig / 2)
-            center_y_orig = int(tl_orig[1] + row * cell_h_orig + cell_h_orig / 2)
-            pad_w = int(cell_w_orig * 0.4)
-            pad_h = int(cell_h_orig * 0.4)
-            x1 = max(0, center_x_orig - pad_w)
-            y1 = max(0, center_y_orig - pad_h)
-            x2 = min(img.shape[1], center_x_orig + pad_w)
-            y2 = min(img.shape[0], center_y_orig + pad_h)
+            y1 = row * CELL_SIZE
+            x1 = col * CELL_SIZE
+            cell = warped[y1:y1 + CELL_SIZE, x1:x1 + CELL_SIZE]
+            prepared = prepare_cell_image(cell)
 
-            if x2 <= x1 or y2 <= y1:
-                _, encoded_img = cv.imencode('.png', np.zeros((50, 50), dtype=np.uint8))
-                cell_images.append(base64.b64encode(encoded_img).decode('utf-8'))
+            if prepared is None:
+                cell_images.append({"image": None})
                 continue
 
-            cell = img[y1:y2, x1:x2]
-            if cell.size == 0:
-                _, encoded_img = cv.imencode('.png', np.zeros((50, 50), dtype=np.uint8))
-                cell_images.append(base64.b64encode(encoded_img).decode('utf-8'))
-                continue
-            
-            cell_gray = cv.cvtColor(cell, cv.COLOR_BGR2GRAY)
-            cell_thresh = cv.adaptiveThreshold(cell_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2)
-            cell_resized = cv.resize(cell_thresh, (50, 50), interpolation=cv.INTER_AREA)
+            _, encoded_img = cv.imencode('.png', prepared)
+            cell_images.append({"image": base64.b64encode(encoded_img).decode('utf-8')})
 
-            _, encoded_img = cv.imencode('.png', cell_resized)
-            cell_images.append(base64.b64encode(encoded_img).decode('utf-8'))
-    
-    return cell_images
+    return json.dumps(cell_images)
 
 cell_images = process_sudoku_image(img_bytes_py)
 (cell_images)
             `;
 
-            const cellImagesBase64 = await pyodide.runPython(pythonCode);
-            if (cellImagesBase64.length === 0) {
+            const cellImages = JSON.parse(await pyodide.runPython(pythonCode));
+            if (cellImages.length === 0) {
                 setStatusMessage('エラー: 盤面が見つかりませんでした。');
                 setIsConverting(false);
                 return;
@@ -175,12 +244,14 @@ cell_images = process_sudoku_image(img_bytes_py)
 
             setStatusMessage('数字を認識中...');
             
-            const ocrPromises = cellImagesBase64.map(base64 => {
-                if (!base64) return Promise.resolve(null);
+            const ocrPromises = cellImages.map(cell => {
+                if (!cell.image) return Promise.resolve(null);
                 // 各セル画像の認識ごとにパラメータを再設定
                 // これにより、認識対象が1-9の数字のみに限定される
-                return worker.recognize(`data:image/png;base64,${base64}`, {
-                    tessedit_char_whitelist: '123456789'
+                return worker.recognize(`data:image/png;base64,${cell.image}`, {
+                    tessedit_char_whitelist: '123456789',
+                    tessedit_pageseg_mode: '10',
+                    classify_bln_numeric_mode: '1'
                 });
             });
 
@@ -193,9 +264,15 @@ cell_images = process_sudoku_image(img_bytes_py)
                 let maxConfidence = 0;
                 
                 // OCR結果から最も信頼度の高い数字を抽出
+                const textDigit = result?.data?.text?.match(/[1-9]/)?.[0];
+                if (textDigit) {
+                    bestDigit = textDigit;
+                    maxConfidence = result.data.confidence || 0;
+                }
+
                 if (result && result.data.symbols && result.data.symbols.length > 0) {
                     const symbolChoices = result.data.symbols[0].choices;
-                    const sortedChoices = symbolChoices
+                    const sortedChoices = (symbolChoices || [])
                         .filter(choice => choice.text.match(/^[1-9]$/))
                         .sort((a, b) => b.confidence - a.confidence);
                     
@@ -206,7 +283,7 @@ cell_images = process_sudoku_image(img_bytes_py)
                 }
                 
                 // 信頼度が低い場合は0と判断
-                if (maxConfidence < 0.50) { 
+                if (maxConfidence < 35) { 
                     bestDigit = '0';
                 }
                 digits.push(bestDigit);
