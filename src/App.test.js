@@ -1,8 +1,20 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('renders learn react link', () => {
-  render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+beforeAll(() => {
+  HTMLCanvasElement.prototype.getContext = jest.fn(() => ({
+    beginPath: jest.fn(),
+    clearRect: jest.fn(),
+    lineTo: jest.fn(),
+    moveTo: jest.fn(),
+    stroke: jest.fn()
+  }));
+});
+
+test('renders sudoku controls', () => {
+  const { container } = render(<App />);
+
+  expect(container.querySelector('.board')).toBeInTheDocument();
+  expect(container.querySelectorAll('.cell')).toHaveLength(81);
+  expect(screen.getByText('N-fish')).toBeInTheDocument();
 });

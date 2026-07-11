@@ -3,6 +3,27 @@ import React, { useEffect, useRef } from 'react';
 import Cell from './Cell';
 import './Board.css';
 
+const CELL_SIZE = 40;
+const THIN_BORDER = 1;
+const THICK_BORDER = 2;
+const BOARD_BORDER = 2;
+const CANVAS_BOARD_SIZE = CELL_SIZE * 9 + THIN_BORDER * 8 + THICK_BORDER * 2 + BOARD_BORDER * 2;
+
+const getCellOrigin = (cell) => ({
+    x: cell.c * CELL_SIZE + Math.floor(cell.c / 3) * THICK_BORDER + cell.c * THIN_BORDER + BOARD_BORDER,
+    y: cell.r * CELL_SIZE + Math.floor(cell.r / 3) * THICK_BORDER + cell.r * THIN_BORDER + BOARD_BORDER
+});
+
+const getNoteCenter = (cell) => {
+    const origin = getCellOrigin(cell);
+    const noteSize = CELL_SIZE / 3;
+
+    return {
+        x: origin.x + (cell.num % 3) * noteSize + noteSize / 2,
+        y: origin.y + Math.floor(cell.num / 3) * noteSize + noteSize / 2
+    };
+};
+
 const Board = ({
     board,
     given,
@@ -15,22 +36,14 @@ const Board = ({
     pathHighlight
 }) => {
     const canvasRef = useRef(null);
-    const cellSize = 40;
-    const thinBorder = 1;
-    const thickBorder = 2;
-    const boardBorder = 2;
-
-    const totalCellWidth = cellSize * 9;
-    const totalGap = thinBorder * 8 + thickBorder * 2;
-    const totalBorder = boardBorder * 2;
-    const canvasBoardSize = totalCellWidth + totalGap + totalBorder;
 
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
+        if (!ctx) return;
         
-        ctx.clearRect(0, 0, canvasBoardSize, canvasBoardSize);
+        ctx.clearRect(0, 0, CANVAS_BOARD_SIZE, CANVAS_BOARD_SIZE);
 
         if (pathHighlight && pathHighlight.length > 0) {
             // ここで透明度を設定
@@ -39,7 +52,6 @@ const Board = ({
             pathHighlight.forEach((link, index) => {
                 const startCell = link.start;
                 const endCell = link.end;
-                const type = link.type;
 
                 if (index % 2 === 0) {
                     ctx.strokeStyle = 'red';
@@ -48,22 +60,12 @@ const Board = ({
                 }
                 ctx.lineWidth = 3;
 
-                const startCellX = startCell.c * cellSize + Math.floor(startCell.c / 3) * thickBorder + startCell.c * thinBorder + boardBorder;
-                const startCellY = startCell.r * cellSize + Math.floor(startCell.r / 3) * thickBorder + startCell.r * thinBorder + boardBorder;
-
-                const noteSize = cellSize / 3;
-                const startX = startCellX + (startCell.num % 3) * noteSize + noteSize / 2;
-                const startY = startCellY + Math.floor(startCell.num / 3) * noteSize + noteSize / 2;
-
-                const endCellX = endCell.c * cellSize + Math.floor(endCell.c / 3) * thickBorder + endCell.c * thinBorder + boardBorder;
-                const endCellY = endCell.r * cellSize + Math.floor(endCell.r / 3) * thickBorder + endCell.r * thinBorder + boardBorder;
-                
-                const endX = endCellX + (endCell.num % 3) * noteSize + noteSize / 2;
-                const endY = endCellY + Math.floor(endCell.num / 3) * noteSize + noteSize / 2;
+                const start = getNoteCenter(startCell);
+                const end = getNoteCenter(endCell);
                 
                 ctx.beginPath();
-                ctx.moveTo(startX, startY);
-                ctx.lineTo(endX, endY);
+                ctx.moveTo(start.x, start.y);
+                ctx.lineTo(end.x, end.y);
                 ctx.stroke();
             });
 
@@ -99,8 +101,8 @@ const Board = ({
             </div>
             <canvas
                 ref={canvasRef}
-                width={canvasBoardSize}
-                height={canvasBoardSize}
+                width={CANVAS_BOARD_SIZE}
+                height={CANVAS_BOARD_SIZE}
                 className="path-overlay"
             />
         </div>
