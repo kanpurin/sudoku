@@ -120,15 +120,86 @@ const classifyCanvasDigit = (mask, width, height) => {
     return bestScore >= 0.22 ? { digit: bestDigit, score: bestScore } : { digit: '0', score: bestScore };
 };
 
-const readCleanSudokuScreenshot = async (src) => {
-    const img = await loadImageElement(src);
-    const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth || img.width;
-    canvas.height = img.naturalHeight || img.height;
-    const context = canvas.getContext('2d', { willReadFrequently: true });
-    context.drawImage(img, 0, 0);
-    const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height);
+const getGray = (data, width, x, y) => {
+    const i = (y * width + x) * 4;
+    return (data[i] + data[i + 1] + data[i + 2]) / 3;
+};
 
+const getLineGroups = (counts, lineLength) => {
+    const maxCount = Math.max(...counts);
+    const threshold = Math.max(lineLength * 0.35, maxCount * 0.45);
+    const groups = [];
+    let start = -1;
+
+    for (let i = 0; i < counts.length; i++) {
+        if (counts[i] >= threshold && start < 0) {
+            start = i;
+        }
+        if (start >= 0 && (counts[i] < threshold || i === counts.length - 1)) {
+            const end = counts[i] < threshold ? i - 1 : i;
+            groups.push({ start, end, center: (start + end) / 2 });
+            start = -1;
+        }
+    }
+
+    return groups;
+};
+
+const chooseRegularLineCenters = (groups) => {
+    if (groups.length < 10) return null;
+
+    let best = null;
+    const centers = groups.map(group => group.center);
+    for (let start = 0; start <= centers.length - 10; start++) {
+        const subset = centers.slice(start, start + 10);
+        const gaps = subset.slice(1).map((center, index) => center - subset[index]);
+        const sortedGaps = [...gaps].sort((a, b) => a - b);
+        const medianGap = sortedGaps[Math.floor(sortedGaps.length / 2)];
+        if (medianGap <= 0) continue;
+
+        const maxDeviation = Math.max(...gaps.map(gap => Math.abs(gap - medianGap) / medianGap));
+        const spanDeviation = Math.abs((subset[9] - subset[0]) / (medianGap * 9) - 1);
+        const score = maxDeviation + spanDeviation;
+        if (maxDeviation <= 0.18 && (!best || score < best.score)) {
+            best = { score, centers: subset };
+        }
+    }
+
+    return best?.centers || null;
+};
+
+const findGridBoundsFromLines = (data, width, height) => {
+    const columnCounts = new Array(width).fill(0);
+    const rowCounts = new Array(height).fill(0);
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            if (getGray(data, width, x, y) >= 140) continue;
+            columnCounts[x]++;
+            rowCounts[y]++;
+        }
+    }
+
+    const xCenters = chooseRegularLineCenters(getLineGroups(columnCounts, height));
+    const yCenters = chooseRegularLineCenters(getLineGroups(rowCounts, width));
+    if (!xCenters || !yCenters) return null;
+
+    const left = Math.round(xCenters[0]);
+    const right = Math.round(xCenters[9]);
+    const top = Math.round(yCenters[0]);
+    const bottom = Math.round(yCenters[9]);
+    const boardWidth = right - left;
+    const boardHeight = bottom - top;
+    const boardRatio = boardWidth / boardHeight;
+
+    if (boardWidth < 120 || boardHeight < 120 || boardRatio < 0.82 || boardRatio > 1.18) {
+        return null;
+    }
+
+    return { left, top, right, bottom };
+};
+
+const findGridBoundsFromLightArea = (data, width, height) => {
     let minX = width;
     let minY = height;
     let maxX = -1;
@@ -153,8 +224,24 @@ const readCleanSudokuScreenshot = async (src) => {
 
     if (maxX < 0) return null;
 
-    const boardWidth = maxX - minX + 1;
-    const boardHeight = maxY - minY + 1;
+    return { left: minX, top: minY, right: maxX + 1, bottom: maxY + 1 };
+};
+
+const readCleanSudokuScreenshot = async (src) => {
+    const img = await loadImageElement(src);
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth || img.width;
+    canvas.height = img.naturalHeight || img.height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    context.drawImage(img, 0, 0);
+    const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height);
+
+    const bounds = findGridBoundsFromLines(data, width, height) || findGridBoundsFromLightArea(data, width, height);
+    if (!bounds) return null;
+
+    const { left, top, right, bottom } = bounds;
+    const boardWidth = right - left;
+    const boardHeight = bottom - top;
     const boardRatio = boardWidth / boardHeight;
     if (boardWidth < 120 || boardHeight < 120 || boardRatio < 0.82 || boardRatio > 1.18) {
         return null;
@@ -169,10 +256,10 @@ const readCleanSudokuScreenshot = async (src) => {
     for (let row = 0; row < 9; row++) {
         let line = '';
         for (let col = 0; col < 9; col++) {
-            const x1 = Math.round(minX + col * cellWidth);
-            const x2 = Math.round(minX + (col + 1) * cellWidth);
-            const y1 = Math.round(minY + row * cellHeight);
-            const y2 = Math.round(minY + (row + 1) * cellHeight);
+            const x1 = Math.round(left + col * cellWidth);
+            const x2 = Math.round(left + (col + 1) * cellWidth);
+            const y1 = Math.round(top + row * cellHeight);
+            const y2 = Math.round(top + (row + 1) * cellHeight);
             const margin = Math.max(4, Math.round(Math.min(cellWidth, cellHeight) * 0.16));
             const innerWidth = Math.max(1, x2 - x1 - margin * 2);
             const innerHeight = Math.max(1, y2 - y1 - margin * 2);
@@ -183,8 +270,7 @@ const readCleanSudokuScreenshot = async (src) => {
                 for (let x = 0; x < innerWidth; x++) {
                     const sourceX = x1 + margin + x;
                     const sourceY = y1 + margin + y;
-                    const i = (sourceY * width + sourceX) * 4;
-                    const gray = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                    const gray = getGray(data, width, sourceX, sourceY);
                     if (gray < 120) {
                         mask[y * innerWidth + x] = 1;
                         darkPixels++;
