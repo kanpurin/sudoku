@@ -65,7 +65,7 @@ const buildDigitTemplates = () => {
 
     for (let digit = 1; digit <= 9; digit++) {
         for (const font of fonts) {
-            for (let fontSize = 24; fontSize <= 34; fontSize += 2) {
+            for (let fontSize = 20; fontSize <= 42; fontSize += 2) {
                 const canvas = document.createElement('canvas');
                 canvas.width = CANVAS_OCR_SIZE;
                 canvas.height = CANVAS_OCR_SIZE;
@@ -174,7 +174,7 @@ const findGridBoundsFromLines = (data, width, height) => {
 
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-            if (getGray(data, width, x, y) >= 140) continue;
+            if (getGray(data, width, x, y) >= 180) continue;
             columnCounts[x]++;
             rowCounts[y]++;
         }
