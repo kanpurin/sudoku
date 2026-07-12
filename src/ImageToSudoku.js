@@ -145,20 +145,20 @@ const getLineGroups = (counts, lineLength) => {
     return groups;
 };
 
-const chooseRegularLineCenters = (groups) => {
-    if (groups.length < 10) return null;
+const chooseRegularLineCenters = (groups, lineCount = 10) => {
+    if (groups.length < lineCount) return null;
 
     let best = null;
     const centers = groups.map(group => group.center);
-    for (let start = 0; start <= centers.length - 10; start++) {
-        const subset = centers.slice(start, start + 10);
+    for (let start = 0; start <= centers.length - lineCount; start++) {
+        const subset = centers.slice(start, start + lineCount);
         const gaps = subset.slice(1).map((center, index) => center - subset[index]);
         const sortedGaps = [...gaps].sort((a, b) => a - b);
         const medianGap = sortedGaps[Math.floor(sortedGaps.length / 2)];
         if (medianGap <= 0) continue;
 
         const maxDeviation = Math.max(...gaps.map(gap => Math.abs(gap - medianGap) / medianGap));
-        const spanDeviation = Math.abs((subset[9] - subset[0]) / (medianGap * 9) - 1);
+        const spanDeviation = Math.abs((subset[lineCount - 1] - subset[0]) / (medianGap * (lineCount - 1)) - 1);
         const score = maxDeviation + spanDeviation;
         if (maxDeviation <= 0.18 && (!best || score < best.score)) {
             best = { score, centers: subset };
@@ -180,19 +180,38 @@ const findGridBoundsFromLines = (data, width, height) => {
         }
     }
 
-    const xCenters = chooseRegularLineCenters(getLineGroups(columnCounts, height));
-    const yCenters = chooseRegularLineCenters(getLineGroups(rowCounts, width));
-    if (!xCenters || !yCenters) return null;
+    const xGroups = getLineGroups(columnCounts, height);
+    const yGroups = getLineGroups(rowCounts, width);
+    const xCenters = chooseRegularLineCenters(xGroups);
+    const yCenters = chooseRegularLineCenters(yGroups);
+    if (xCenters && yCenters) {
+        const left = Math.round(xCenters[0]);
+        const right = Math.round(xCenters[9]);
+        const top = Math.round(yCenters[0]);
+        const bottom = Math.round(yCenters[9]);
+        const boardWidth = right - left;
+        const boardHeight = bottom - top;
+        const boardRatio = boardWidth / boardHeight;
 
-    const left = Math.round(xCenters[0]);
-    const right = Math.round(xCenters[9]);
-    const top = Math.round(yCenters[0]);
-    const bottom = Math.round(yCenters[9]);
+        if (boardWidth >= 120 && boardHeight >= 120 && boardRatio >= 0.82 && boardRatio <= 1.18) {
+            return { left, top, right, bottom };
+        }
+    }
+
+    const boxXCenters = chooseRegularLineCenters(xGroups, 4);
+    const boxYCenters = chooseRegularLineCenters(yGroups, 4);
+    if (!boxXCenters || !boxYCenters) return null;
+
+    const left = Math.round(boxXCenters[0]);
+    const right = Math.round(boxXCenters[3]);
+    const top = Math.round(boxYCenters[0]);
+    const bottom = Math.round(boxYCenters[3]);
     const boardWidth = right - left;
     const boardHeight = bottom - top;
     const boardRatio = boardWidth / boardHeight;
+    const coversMostImage = boardWidth >= width * 0.72 && boardHeight >= height * 0.72;
 
-    if (boardWidth < 120 || boardHeight < 120 || boardRatio < 0.82 || boardRatio > 1.18) {
+    if (!coversMostImage || boardWidth < 120 || boardHeight < 120 || boardRatio < 0.82 || boardRatio > 1.18) {
         return null;
     }
 
