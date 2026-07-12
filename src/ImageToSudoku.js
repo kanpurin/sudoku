@@ -2,6 +2,220 @@
 import React, { useState, useEffect } from 'react';
 import './ImageToSudoku.css';
 
+const CANVAS_OCR_SIZE = 40;
+let digitTemplateCache = null;
+
+const loadImageElement = (src) => new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = src;
+});
+
+const normalizeMask = (mask, width, height, size = CANVAS_OCR_SIZE) => {
+    let minX = width;
+    let minY = height;
+    let maxX = -1;
+    let maxY = -1;
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            if (!mask[y * width + x]) continue;
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+        }
+    }
+
+    if (maxX < 0) return null;
+
+    const boxWidth = maxX - minX + 1;
+    const boxHeight = maxY - minY + 1;
+    const scale = Math.min((size - 8) / boxWidth, (size - 8) / boxHeight);
+    const offsetX = Math.floor((size - boxWidth * scale) / 2);
+    const offsetY = Math.floor((size - boxHeight * scale) / 2);
+    const normalized = new Uint8Array(size * size);
+
+    for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+            if (!mask[y * width + x]) continue;
+            const nx = Math.round((x - minX) * scale + offsetX);
+            const ny = Math.round((y - minY) * scale + offsetY);
+            for (let dy = 0; dy <= 1; dy++) {
+                for (let dx = 0; dx <= 1; dx++) {
+                    const px = nx + dx;
+                    const py = ny + dy;
+                    if (px >= 0 && px < size && py >= 0 && py < size) {
+                        normalized[py * size + px] = 1;
+                    }
+                }
+            }
+        }
+    }
+
+    return normalized;
+};
+
+const buildDigitTemplates = () => {
+    if (digitTemplateCache) return digitTemplateCache;
+
+    const fonts = ['Arial', 'Calibri', 'Segoe UI', 'sans-serif'];
+    const templates = [];
+
+    for (let digit = 1; digit <= 9; digit++) {
+        for (const font of fonts) {
+            for (let fontSize = 24; fontSize <= 34; fontSize += 2) {
+                const canvas = document.createElement('canvas');
+                canvas.width = CANVAS_OCR_SIZE;
+                canvas.height = CANVAS_OCR_SIZE;
+                const context = canvas.getContext('2d');
+                context.fillStyle = 'black';
+                context.fillRect(0, 0, CANVAS_OCR_SIZE, CANVAS_OCR_SIZE);
+                context.fillStyle = 'white';
+                context.font = `${fontSize}px ${font}`;
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+                context.fillText(String(digit), CANVAS_OCR_SIZE / 2, CANVAS_OCR_SIZE / 2 + 1);
+
+                const data = context.getImageData(0, 0, CANVAS_OCR_SIZE, CANVAS_OCR_SIZE).data;
+                const mask = new Uint8Array(CANVAS_OCR_SIZE * CANVAS_OCR_SIZE);
+                for (let i = 0; i < mask.length; i++) {
+                    mask[i] = data[i * 4] > 80 ? 1 : 0;
+                }
+                const normalized = normalizeMask(mask, CANVAS_OCR_SIZE, CANVAS_OCR_SIZE);
+                if (normalized) templates.push({ digit, mask: normalized });
+            }
+        }
+    }
+
+    digitTemplateCache = templates;
+    return templates;
+};
+
+const scoreMask = (candidate, template) => {
+    let intersection = 0;
+    let union = 0;
+    for (let i = 0; i < candidate.length; i++) {
+        if (candidate[i] || template[i]) union++;
+        if (candidate[i] && template[i]) intersection++;
+    }
+    return union ? intersection / union : 0;
+};
+
+const classifyCanvasDigit = (mask, width, height) => {
+    const normalized = normalizeMask(mask, width, height);
+    if (!normalized) return { digit: '0', score: 0 };
+
+    let bestDigit = '0';
+    let bestScore = 0;
+    for (const template of buildDigitTemplates()) {
+        const score = scoreMask(normalized, template.mask);
+        if (score > bestScore) {
+            bestScore = score;
+            bestDigit = String(template.digit);
+        }
+    }
+
+    return bestScore >= 0.22 ? { digit: bestDigit, score: bestScore } : { digit: '0', score: bestScore };
+};
+
+const readCleanSudokuScreenshot = async (src) => {
+    const img = await loadImageElement(src);
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth || img.width;
+    canvas.height = img.naturalHeight || img.height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    context.drawImage(img, 0, 0);
+    const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height);
+
+    let minX = width;
+    let minY = height;
+    let maxX = -1;
+    let maxY = -1;
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const i = (y * width + x) * 4;
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const brightness = (r + g + b) / 3;
+            const saturation = Math.max(r, g, b) - Math.min(r, g, b);
+            if (brightness > 160 && saturation < 60) {
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x);
+                maxY = Math.max(maxY, y);
+            }
+        }
+    }
+
+    if (maxX < 0) return null;
+
+    const boardWidth = maxX - minX + 1;
+    const boardHeight = maxY - minY + 1;
+    const boardRatio = boardWidth / boardHeight;
+    if (boardWidth < 120 || boardHeight < 120 || boardRatio < 0.82 || boardRatio > 1.18) {
+        return null;
+    }
+
+    const cellWidth = boardWidth / 9;
+    const cellHeight = boardHeight / 9;
+    const lines = [];
+    const scores = [];
+    let recognizedCells = 0;
+
+    for (let row = 0; row < 9; row++) {
+        let line = '';
+        for (let col = 0; col < 9; col++) {
+            const x1 = Math.round(minX + col * cellWidth);
+            const x2 = Math.round(minX + (col + 1) * cellWidth);
+            const y1 = Math.round(minY + row * cellHeight);
+            const y2 = Math.round(minY + (row + 1) * cellHeight);
+            const margin = Math.max(4, Math.round(Math.min(cellWidth, cellHeight) * 0.16));
+            const innerWidth = Math.max(1, x2 - x1 - margin * 2);
+            const innerHeight = Math.max(1, y2 - y1 - margin * 2);
+            const mask = new Uint8Array(innerWidth * innerHeight);
+            let darkPixels = 0;
+
+            for (let y = 0; y < innerHeight; y++) {
+                for (let x = 0; x < innerWidth; x++) {
+                    const sourceX = x1 + margin + x;
+                    const sourceY = y1 + margin + y;
+                    const i = (sourceY * width + sourceX) * 4;
+                    const gray = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                    if (gray < 120) {
+                        mask[y * innerWidth + x] = 1;
+                        darkPixels++;
+                    }
+                }
+            }
+
+            const minDarkPixels = Math.max(12, Math.round(innerWidth * innerHeight * 0.025));
+            if (darkPixels < minDarkPixels) {
+                line += '0';
+                continue;
+            }
+
+            const { digit, score } = classifyCanvasDigit(mask, innerWidth, innerHeight);
+            if (digit !== '0') {
+                recognizedCells++;
+                scores.push(score);
+            }
+            line += digit;
+        }
+        lines.push(line);
+    }
+
+    const averageScore = scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0;
+    if (recognizedCells < 8 || averageScore < 0.45) {
+        return null;
+    }
+
+    return lines.join('\n');
+};
+
 // ナンプレ画像からテキストへの変換を行うコンポーネント
 const ImageToSudoku = ({ onConvert }) => {
     const [statusMessage, setStatusMessage] = useState('初期化中...');
@@ -25,7 +239,9 @@ const ImageToSudoku = ({ onConvert }) => {
                 
                 // OCRの認識対象を数字に限定する
                 await tesseractWorker.setParameters({
-                    tessedit_char_whitelist: '0123456789'
+                    tessedit_char_whitelist: '0123456789',
+                    tessedit_pageseg_mode: '10',
+                    classify_bln_numeric_mode: '1'
                 });
                 
                 setWorker(tesseractWorker);
@@ -63,6 +279,13 @@ const ImageToSudoku = ({ onConvert }) => {
         setStatusMessage('画像処理中...');
 
         try {
+            const cleanScreenshotBoard = await readCleanSudokuScreenshot(sudokuImage);
+            if (cleanScreenshotBoard) {
+                onConvert(cleanScreenshotBoard);
+                setStatusMessage('完了！');
+                return;
+            }
+
             const blob = await fetch(sudokuImage).then(res => res.blob());
             const arrayBuffer = await blob.arrayBuffer();
             const uint8Array = new Uint8Array(arrayBuffer);
@@ -170,6 +393,46 @@ def find_grid_from_lines(gray):
         dtype="float32"
     )
 
+def find_grid_from_light_area(gray):
+    threshold_value, light = cv.threshold(gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+    if threshold_value < 90:
+        _, light = cv.threshold(gray, 130, 255, cv.THRESH_BINARY)
+
+    kernel = cv.getStructuringElement(cv.MORPH_RECT, (5, 5))
+    light = cv.morphologyEx(light, cv.MORPH_CLOSE, kernel, iterations=2)
+    contours, _ = cv.findContours(light, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return None
+
+    image_area = gray.shape[0] * gray.shape[1]
+    candidates = []
+    for contour in contours:
+        x, y, w, h = cv.boundingRect(contour)
+        area = w * h
+        ratio = w / max(h, 1)
+        if area < image_area * 0.25 or area > image_area * 0.98:
+            continue
+        if ratio < 0.75 or ratio > 1.25:
+            continue
+        candidates.append((area, x, y, w, h))
+
+    if not candidates:
+        return None
+
+    _, x, y, w, h = max(candidates, key=lambda item: item[0])
+    side = max(w, h)
+    cx = x + w / 2
+    cy = y + h / 2
+    x1 = max(0, int(round(cx - side / 2)))
+    y1 = max(0, int(round(cy - side / 2)))
+    x2 = min(gray.shape[1] - 1, int(round(cx + side / 2)))
+    y2 = min(gray.shape[0] - 1, int(round(cy + side / 2)))
+
+    return np.array(
+        [[[x1, y1]], [[x2, y1]], [[x2, y2]], [[x1, y2]]],
+        dtype="float32"
+    )
+
 def warp_grid(img):
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     gray = cv.equalizeHist(gray)
@@ -185,13 +448,18 @@ def warp_grid(img):
     kernel = cv.getStructuringElement(cv.MORPH_RECT, (3, 3))
     closed = cv.morphologyEx(thresh, cv.MORPH_CLOSE, kernel, iterations=1)
     image_area = img.shape[0] * img.shape[1]
-    contour = find_grid_contour(closed, image_area)
+    contour = find_grid_from_light_area(gray)
+    if contour is None:
+        contour = find_grid_contour(closed, image_area)
     if contour is not None and contour_area_ratio(contour, image_area) > 0.95:
+        light_contour = find_grid_from_light_area(gray)
         line_contour = find_grid_from_lines(gray)
-        contour = line_contour if line_contour is not None else contour_as_axis_aligned_rect(contour)
+        contour = light_contour if light_contour is not None else line_contour if line_contour is not None else contour_as_axis_aligned_rect(contour)
 
     if contour is None:
-        contour = find_grid_from_lines(gray)
+        contour = find_grid_from_light_area(gray)
+        if contour is None:
+            contour = find_grid_from_lines(gray)
         if contour is None:
             return None
 
@@ -212,57 +480,53 @@ def remove_grid_lines(binary):
     return cv.bitwise_and(binary, cv.bitwise_not(grid))
 
 def prepare_cell_image(cell):
-    margin = int(CELL_SIZE * 0.16)
+    margin = max(4, int(CELL_SIZE * 0.1))
     inner = cell[margin:CELL_SIZE - margin, margin:CELL_SIZE - margin]
-    inner = cv.GaussianBlur(inner, (3, 3), 0)
-    binary = cv.adaptiveThreshold(
-        inner,
-        255,
-        cv.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv.THRESH_BINARY_INV,
-        21,
-        8
-    )
+    blurred = cv.GaussianBlur(inner, (3, 3), 0)
+    _, binary = cv.threshold(blurred, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
     binary = remove_grid_lines(binary)
 
     num_labels, labels, stats, _ = cv.connectedComponentsWithStats(binary, 8)
     digit_mask = np.zeros(binary.shape, dtype=np.uint8)
-    components = []
     area_limit = binary.shape[0] * binary.shape[1]
-
+    components = []
     for label in range(1, num_labels):
         x, y, w, h, area = stats[label]
-        if area < 12 or area > area_limit * 0.55:
+        if area < 8 or area > area_limit * 0.4:
             continue
-        if h < binary.shape[0] * 0.18 or w < binary.shape[1] * 0.06:
+        if h < binary.shape[0] * 0.16 or w < binary.shape[1] * 0.04:
             continue
-        if x <= 1 or y <= 1 or x + w >= binary.shape[1] - 1 or y + h >= binary.shape[0] - 1:
+        if x <= 0 or y <= 0 or x + w >= binary.shape[1] or y + h >= binary.shape[0]:
             continue
-        components.append((x, y, w, h, area, label))
+        components.append(label)
 
     if not components:
         return None
 
-    for _, _, _, _, _, label in components:
+    for label in components:
         digit_mask[labels == label] = 255
 
     ys, xs = np.where(digit_mask > 0)
     if len(xs) == 0:
         return None
 
-    x1, x2 = xs.min(), xs.max()
-    y1, y2 = ys.min(), ys.max()
+    x1 = max(0, xs.min() - 2)
+    x2 = min(inner.shape[1] - 1, xs.max() + 2)
+    y1 = max(0, ys.min() - 2)
+    y2 = min(inner.shape[0] - 1, ys.max() + 2)
     digit = digit_mask[y1:y2 + 1, x1:x2 + 1]
+    raw_digit = inner[y1:y2 + 1, x1:x2 + 1]
+    clean_digit = np.full(raw_digit.shape, 255, dtype=np.uint8)
+    clean_digit[digit > 0] = raw_digit[digit > 0]
 
-    h, w = digit.shape
-    scale = min(68 / max(w, 1), 76 / max(h, 1))
-    resized = cv.resize(digit, (max(1, int(w * scale)), max(1, int(h * scale))), interpolation=cv.INTER_AREA)
+    h, w = clean_digit.shape
+    scale = min(62 / max(w, 1), 74 / max(h, 1))
+    resized = cv.resize(clean_digit, (max(1, int(w * scale)), max(1, int(h * scale))), interpolation=cv.INTER_CUBIC)
 
     canvas = np.full((OCR_SIZE, OCR_SIZE), 255, dtype=np.uint8)
-    digit_black = 255 - resized
-    y = (OCR_SIZE - digit_black.shape[0]) // 2
-    x = (OCR_SIZE - digit_black.shape[1]) // 2
-    canvas[y:y + digit_black.shape[0], x:x + digit_black.shape[1]] = digit_black
+    y = (OCR_SIZE - resized.shape[0]) // 2
+    x = (OCR_SIZE - resized.shape[1]) // 2
+    canvas[y:y + resized.shape[0], x:x + resized.shape[1]] = resized
     return canvas
 
 def process_sudoku_image(img_bytes):
@@ -310,9 +574,7 @@ cell_images = process_sudoku_image(img_bytes_py)
                 // 各セル画像の認識ごとにパラメータを再設定
                 // これにより、認識対象が1-9の数字のみに限定される
                 return worker.recognize(`data:image/png;base64,${cell.image}`, {
-                    tessedit_char_whitelist: '123456789',
-                    tessedit_pageseg_mode: '10',
-                    classify_bln_numeric_mode: '1'
+                    tessedit_char_whitelist: '123456789'
                 });
             });
 
@@ -323,7 +585,6 @@ cell_images = process_sudoku_image(img_bytes_py)
                 const result = ocrResults[i];
                 let bestDigit = '0';
                 let maxConfidence = 0;
-                
                 // OCR結果から最も信頼度の高い数字を抽出
                 const textDigit = result?.data?.text?.match(/[1-9]/)?.[0];
                 if (textDigit) {
@@ -331,7 +592,7 @@ cell_images = process_sudoku_image(img_bytes_py)
                     maxConfidence = result.data.confidence || 0;
                 }
 
-                if (result && result.data.symbols && result.data.symbols.length > 0) {
+                if (bestDigit === '0' && result && result.data.symbols && result.data.symbols.length > 0) {
                     const symbolChoices = result.data.symbols[0].choices;
                     const sortedChoices = (symbolChoices || [])
                         .filter(choice => choice.text.match(/^[1-9]$/))
