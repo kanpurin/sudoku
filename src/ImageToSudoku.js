@@ -734,33 +734,43 @@ cell_images = process_sudoku_image(img_bytes_py)
 
     return (
         <div className="image-to-sudoku-container">
-            <h2 className="image-to-sudoku-title">画像から盤面を読み込む(精度△)</h2>
-            <div className="status-message">
-                {statusMessage}
+            <div className="image-to-sudoku-header">
+                <h2 className="image-to-sudoku-title">画像読み込み</h2>
+                <div className="status-message">
+                    {statusMessage}
+                </div>
             </div>
-            
-            <input 
-                type="file" 
-                onChange={handleImageUpload} 
-                accept="image/*" 
-                className="image-upload-input"
-            />
-            
+
+            <div className="image-import-actions">
+                <label className="image-pick-button">
+                    画像を選択
+                    <input 
+                        type="file" 
+                        onChange={handleImageUpload} 
+                        accept="image/*" 
+                        className="image-upload-input"
+                    />
+                </label>
+
+                <button 
+                    onClick={handleConvert}
+                    disabled={!sudokuImage || isConverting}
+                    className="convert-button"
+                >
+                    {isConverting ? '変換中...' : '変換'}
+                </button>
+            </div>
+
             {sudokuImage && (
-                <img 
-                    src={sudokuImage} 
-                    alt="Uploaded Sudoku" 
-                    className="sudoku-image-preview"
-                />
+                <div className="image-preview-row">
+                    <img 
+                        src={sudokuImage} 
+                        alt="Uploaded Sudoku" 
+                        className="sudoku-image-preview"
+                    />
+                    <span className="image-preview-label">選択済み</span>
+                </div>
             )}
-            
-            <button 
-                onClick={handleConvert}
-                disabled={!sudokuImage || isConverting}
-                className="convert-button"
-            >
-                {isConverting ? '変換中...' : '画像をテキストに変換'}
-            </button>
         </div>
     );
 };
