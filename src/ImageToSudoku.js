@@ -125,6 +125,11 @@ const getGray = (data, width, x, y) => {
     return (data[i] + data[i + 1] + data[i + 2]) / 3;
 };
 
+const getSaturation = (data, width, x, y) => {
+    const i = (y * width + x) * 4;
+    return Math.max(data[i], data[i + 1], data[i + 2]) - Math.min(data[i], data[i + 1], data[i + 2]);
+};
+
 const getLineGroups = (counts, lineLength) => {
     const maxCount = Math.max(...counts);
     const threshold = Math.max(lineLength * 0.35, maxCount * 0.45);
@@ -168,13 +173,13 @@ const chooseRegularLineCenters = (groups, lineCount = 10) => {
     return best?.centers || null;
 };
 
-const findGridBoundsFromLines = (data, width, height) => {
+const findGridBoundsFromLineCandidates = (data, width, height, isLinePixel) => {
     const columnCounts = new Array(width).fill(0);
     const rowCounts = new Array(height).fill(0);
 
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-            if (getGray(data, width, x, y) >= 180) continue;
+            if (!isLinePixel(x, y)) continue;
             columnCounts[x]++;
             rowCounts[y]++;
         }
@@ -216,6 +221,17 @@ const findGridBoundsFromLines = (data, width, height) => {
     }
 
     return { left, top, right, bottom };
+};
+
+const findGridBoundsFromLines = (data, width, height) => {
+    const lowSaturationBounds = findGridBoundsFromLineCandidates(data, width, height, (x, y) => {
+        return getGray(data, width, x, y) < 180 && getSaturation(data, width, x, y) <= 35;
+    });
+    if (lowSaturationBounds) return lowSaturationBounds;
+
+    return findGridBoundsFromLineCandidates(data, width, height, (x, y) => {
+        return getGray(data, width, x, y) < 180;
+    });
 };
 
 const findGridBoundsFromLightArea = (data, width, height) => {
